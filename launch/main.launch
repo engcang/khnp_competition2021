@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<launch>
+
+<!--  <node name="visualizer" pkg="rviz" type="rviz" args="-d $(find traj_gen)/rviz.rviz"/>-->
+
+<!-- Edit this part with your own algorithms -->
+<!--  <param name="/cfg_file" value="$(find traj_gen)/scripts/yolov4-tiny-3l-obj.cfg"/>-->
+<!--  <node name="person_detector" pkg="traj_gen" type="ros_opencv_dnn.py" output="screen"/>-->
+
+
+<!-- Do not touch below -->
+  <!--  MAIN code -->
+  <param name="/img_width" value="480"/>
+  <param name="/img_height" value="320"/> 
+  <param name="/first_cam_topic" value="/d455/depth/rgb_image_raw/compressed"/>
+  <param name="/third_cam_topic" value="/third_camera/rgb/image_raw/compressed"/>
+  <param name="/third_cam_name" value="third_camera"/>
+  <param name="/robot_name" value="/"/>
+
+  <node name="khnp_competition_code" pkg="khnp_competition" type="khnp_competition_node" output="screen"/>
+  <!-- launch-prefix="gdb -ex run --> <!--args" -->
+
+</launch>
