@@ -2,14 +2,20 @@
 + Quadruped robot with manipulator for this year
 
 
+<br>
+
 ## How to use
 + Make sure that you installed `ROS desktop full` version - refer the [wiki page](https://wiki.ros.org/ROS/Installation)
   + It comes with `Qt5`, `Gazebo`
+
+<br>
 
 + Clone the git
 ~~~shell
 $ git clone --recursive https://github.com/engcang/khnp_competition2021
 ~~~
+
+<br>
 
 + Add Gazebo Path
 ~~~shell
@@ -18,10 +24,23 @@ $ echo "export GAZEBO_MODEL_PATH=:$GAZEBO_MODEL_PATH:$(pwd)/refracted_corridor_m
 $ . ~/.bashrc
 ~~~
 
+<br>
+
++ Build the package
+~~~shell
+$ cd <your_workspace_where_you_clone_this_repo>
+$ catkin build
+$ . devel/setup.bash
+~~~
+
+<br>
+
 + Run launch file
 ~~~shell
 $ roslaunch khnp_competition main.launch world_name:=$(pwd)/course_A.world
 ~~~
+
+<br>
 
 + Add your autonomous navigation algorithm code and controller as follows:
   + Open `main.launch` to edit
