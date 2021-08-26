@@ -227,7 +227,7 @@ void khnp_comp::QT_initialize(){
   left_text1->setText(tr("3rd person view image"));
   left_text1->setAlignment(Qt::AlignCenter);
   left_text1->setAutoFillBackground(true);
-  left_text1->setFixedSize(QSize(img_width,50));
+  left_text1->setFixedSize(QSize(480,50));
   palette = left_text1->palette();
   palette.setColor(QPalette::Window, cyan);
   left_text1->setPalette(palette);
@@ -240,7 +240,7 @@ void khnp_comp::QT_initialize(){
   left_text2->setText(tr("1st person view image"));
   left_text2->setAlignment(Qt::AlignCenter);
   left_text2->setAutoFillBackground(true);
-  left_text2->setFixedSize(QSize(img_width,50));
+  left_text2->setFixedSize(QSize(480,50));
   palette = left_text2->palette();
   palette.setColor(QPalette::Window, cyan);
   left_text2->setPalette(palette);
@@ -378,7 +378,7 @@ void khnp_comp::QT_initialize(){
   setLayout(main_hbox);
 
   show();
-  setWindowTitle(tr("KHNP competition window"));
+  setWindowTitle(tr("KHNP competition window2"));
 
   qt_check=true;
 }
