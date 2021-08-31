@@ -66,14 +66,23 @@ using namespace std;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class khnp_comp: public QWidget{
   private:
+    // no meaning for private, just separate QT variables
     QHBoxLayout *main_hbox;
     QVBoxLayout *left_vbox, *right_vbox;
-    QHBoxLayout *right_hbox_btns, *right_hbox1, *right_hbox2, *right_hbox3, *right_hbox4, *right_hbox5;
+    QHBoxLayout *right_hbox_btns, *right_hbox1, *right_hbox2, *right_hbox3, *right_hbox4, *right_hbox5, *right_hbox_result;
     QLabel *left_text1, *left_text2, *left_3rd_img, *left_1st_img;
     QLabel *right_text1, *right_text2, *right_text3, *right_text4;
     QLabel *right_text5, *right_text6, *right_text7, *right_text8;
-    QLabel *right_creator, *right_logo;
+    QLabel *right_creator, *right_logo, *right_result;
     QPushButton *falldown_button, *pause_button, *reset_button, *skip_button;
+
+    QPalette palette;
+    QFont font;
+    QColor cyan=QColor(121,215,252);
+    QColor palegreen=QColor(172,252,186);
+    QColor palepurple=QColor(228,191,255);
+    QColor lightred=QColor(255,77,115);
+    int iconsize=100;
 
     cv_bridge::CvImagePtr third_cam_cv_img_ptr, first_cam_cv_img_ptr;
     cv::Mat logo_img, pause_img, paused_img, falldown_img, fell_img, reset_img, skip_img;
@@ -86,8 +95,10 @@ class khnp_comp: public QWidget{
     void pause_button_callback();
     void reset_button_callback();
     void skip_button_callback();
+    void finish_result();
 
   public:
+    // no meaning for public, just separate ROS and main variables
     gazebo_msgs::ModelStates states;
     gazebo_msgs::ModelState cam_pose;
     gazebo_msgs::SetModelState model_move_srv;
@@ -96,7 +107,7 @@ class khnp_comp: public QWidget{
     rosgraph_msgs::Clock real_current_time, fixed_current_time;
 
     bool initialized=false, qt_initialized=false, state_check=false, clock_check=false, third_cam_check=false, first_cam_check=false;
-    bool first_clock_in=false, if_felldown_flag=false;
+    bool first_clock_in=false, if_felldown_flag=false, if_finished=false;
     std::string robot_name, third_cam_name, third_cam_topic, first_cam_topic;
     int idx=0, img_width, img_height;
 
@@ -156,9 +167,10 @@ void khnp_comp::main_timer_func(const ros::TimerEvent& event){
     qt_img_update(left_3rd_img, third_cam_cv_img_ptr->image);
     qt_img_update(left_1st_img, first_cam_cv_img_ptr->image);
 
-    // float temp = real_current_time.clock.sec-fixed_current_time.clock.sec + (real_current_time.clock.nsec-fixed_current_time.clock.nsec)*1e-9;
-    float temp = real_current_time.clock.sec + real_current_time.clock.nsec*1e-9;
-    right_text8->setText(QString::number(temp,'g',7));
+    if(!if_finished){
+      auto temp = real_current_time.clock-fixed_current_time.clock;
+      right_text8->setText(QString::number(temp.sec + temp.nsec*1e-9,'g',7));
+    }
   }
   else{
     cout << initialized << qt_initialized << state_check << third_cam_check << first_cam_check << endl;
@@ -280,7 +292,46 @@ void khnp_comp::reset_button_callback(){
 }
 void khnp_comp::skip_button_callback(){
   ROS_WARN("skip");
+  finish_result();
 }
+
+void khnp_comp::finish_result(){
+  if(!if_finished){
+    right_text1->setText(tr("Total score"));
+    palette = right_text1->palette();
+    palette.setColor(QPalette::Window, lightred);
+    right_text1->setPalette(palette);
+
+    right_text4->setText(tr("Finished time"));
+    palette = right_text4->palette();
+    palette.setColor(QPalette::Window, lightred);
+    right_text4->setPalette(palette);
+
+    char result_string[200];
+    sprintf(result_string, "Results:\n\nRefracted corridor: %d \nRough terrain: %d \nManiuplator: %d \nDisturbance: %d \nStair: %d \nPanelty(falldown):  %d", false, true, false, true, false, -120);
+    QString result = QString::fromStdString(result_string);
+    right_result->setText(result);
+    right_result->setAlignment(Qt::AlignCenter);
+    right_result->setAutoFillBackground(true);
+    right_result->setFixedSize(QSize(400,180));
+    palette = right_result->palette();
+    palette.setColor(QPalette::Window, lightred);
+    right_result->setPalette(palette);
+    font = right_result->font();
+    font.setPointSize(11);
+    right_result->setFont(font);
+    right_result->setFrameStyle(QFrame::Panel | QFrame::Raised);
+    right_result->setLineWidth(3);
+
+    auto temp = real_current_time.clock-fixed_current_time.clock;
+    right_text8->setText(QString::number(temp.sec + temp.nsec*1e-9,'g',7));
+
+    if_finished=true;
+
+    ROS_WARN("Finished!!!");
+  }
+}
+
 
 void khnp_comp::QT_initialize(){
   logo_img = cv::imread(path + "/resources/khnp.png");
@@ -297,13 +348,6 @@ void khnp_comp::QT_initialize(){
   cv::cvtColor(fell_img, fell_img, CV_BGR2RGB);
   cv::cvtColor(reset_img, reset_img, CV_BGR2RGB);
   cv::cvtColor(skip_img, skip_img, CV_BGR2RGB);
-
-  QPalette palette;
-  QFont font;
-  QColor cyan(121,215,252);
-  QColor palegreen(172,252,186);
-  QColor palepurple(228,191,255);
-  int iconsize=100;
 
   left_text1 = new QLabel();
   left_text2 = new QLabel();
@@ -323,12 +367,14 @@ void khnp_comp::QT_initialize(){
   right_text8 = new QLabel();
   right_creator = new QLabel();
   right_logo = new QLabel();
+  right_result = new QLabel();
   right_hbox_btns = new QHBoxLayout();
   right_hbox1 = new QHBoxLayout();
   right_hbox2 = new QHBoxLayout();
   right_hbox3 = new QHBoxLayout();
   right_hbox4 = new QHBoxLayout();
   right_hbox5 = new QHBoxLayout();
+  right_hbox_result = new QHBoxLayout();
   left_vbox = new QVBoxLayout();
   right_vbox = new QVBoxLayout();
   main_hbox = new QHBoxLayout();
@@ -383,18 +429,6 @@ void khnp_comp::QT_initialize(){
   left_text2->setLineWidth(3);
 
 
-  right_text1->setText(tr("Current score"));
-  right_text1->setAlignment(Qt::AlignCenter);
-  right_text1->setAutoFillBackground(true);
-  right_text1->setFixedSize(QSize(260,50));
-  palette = right_text1->palette();
-  palette.setColor(QPalette::Window, palegreen);
-  right_text1->setPalette(palette);
-  font = right_text1->font();
-  font.setPointSize(14);
-  right_text1->setFont(font);
-  right_text1->setFrameStyle(QFrame::Panel | QFrame::Raised);
-  right_text1->setLineWidth(3);  
 
   right_text1->setText(tr("Current score"));
   right_text1->setAlignment(Qt::AlignCenter);
@@ -521,17 +555,17 @@ void khnp_comp::QT_initialize(){
   right_hbox5->addWidget(right_creator);
   right_hbox5->addWidget(right_logo);
   right_hbox5->setAlignment(Qt::AlignCenter);
+  right_hbox_result->addWidget(right_result);
+  right_hbox_result->setAlignment(Qt::AlignCenter);
 
   right_vbox->addLayout(right_hbox_btns);
   right_vbox->addLayout(right_hbox1);
   right_vbox->addLayout(right_hbox2);
   right_vbox->addLayout(right_hbox3);
   right_vbox->addLayout(right_hbox4);
-
-  // status and others ////////////////////////////////TODO
-
   right_vbox->addLayout(right_hbox5);
   right_vbox->setAlignment(Qt::AlignCenter);
+  right_vbox->addLayout(right_hbox_result);
 
 
   main_hbox->addLayout(left_vbox);
