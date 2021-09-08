@@ -40,6 +40,7 @@
 #include <gazebo_msgs/ModelStates.h>
 #include <gazebo_msgs/SetModelState.h>
 #include <gazebo_msgs/SpawnModel.h>
+#include <std_msgs/Empty.h>
 #include <std_srvs/Empty.h>
 
 ///// image processing
@@ -48,6 +49,11 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include <cv_bridge/cv_bridge.h>
+
+#include "courseA.h"
+// #include "courseB.h"
+
+using namespace std;
 
 ///// utils
 #include <signal.h>
@@ -59,8 +65,6 @@ double euclidean_dist(double x1, double y1, double z1, double x2, double y2, dou
 	return sqrt(pow(x1-x2,2) + pow(y1-y2,2) + pow(z1-z2,2));
 }
 
-using namespace std;
-
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -69,10 +73,10 @@ class khnp_comp: public QWidget{
     // no meaning for private, just separate QT variables
     QHBoxLayout *main_hbox;
     QVBoxLayout *left_vbox, *right_vbox;
-    QHBoxLayout *right_hbox_btns, *right_hbox1, *right_hbox2, *right_hbox3, *right_hbox4, *right_hbox5, *right_hbox_result;
+    QHBoxLayout *right_hbox_btns, *right_hbox1, *right_hbox2, *right_hbox3, *right_hbox4, *right_hbox5, *right_hbox6, *right_hbox_result;
     QLabel *left_text1, *left_text2, *left_3rd_img, *left_1st_img;
-    QLabel *right_text1, *right_text2, *right_text3, *right_text4;
-    QLabel *right_text5, *right_text6, *right_text7, *right_text8;
+    QLabel *right_text1, *right_text2, *right_text3, *right_text4, *right_text9;
+    QLabel *right_text5, *right_text6, *right_text7, *right_text8, *right_text10;
     QLabel *right_creator, *right_logo, *right_result;
     QPushButton *falldown_button, *pause_button, *reset_button, *skip_button;
 
@@ -87,7 +91,7 @@ class khnp_comp: public QWidget{
     cv_bridge::CvImagePtr third_cam_cv_img_ptr, first_cam_cv_img_ptr;
     cv::Mat logo_img, pause_img, paused_img, falldown_img, fell_img, reset_img, skip_img;
     string path;
-    bool paused_check=false;
+    bool paused_check=false, skip_check=false;
 
     void qt_img_update(QLabel *label, cv::Mat img);
     void qt_icon_update(QPushButton *btn, cv::Mat img);
@@ -100,20 +104,24 @@ class khnp_comp: public QWidget{
   public:
     // no meaning for public, just separate ROS and main variables
     gazebo_msgs::ModelStates states;
-    gazebo_msgs::ModelState cam_pose;
+    gazebo_msgs::ModelState cam_pose, robot_pose, other_pose;
     gazebo_msgs::SetModelState model_move_srv;
     std_srvs::Empty empty_srv;
+    std_msgs::Empty empty_msg;
     sensor_msgs::CompressedImage third_cam_img_msg, first_cam_img_msg;
-    rosgraph_msgs::Clock real_current_time, fixed_current_time;
+    rosgraph_msgs::Clock real_current_time, fixed_current_time, fixed_course_time;
 
     bool initialized=false, qt_initialized=false, state_check=false, clock_check=false, third_cam_check=false, first_cam_check=false;
     bool first_clock_in=false, if_felldown_flag=false, if_finished=false;
+    bool if_corridor_passed=false, if_disturbance_passed=false, if_terrain_passed=false, if_manipulator_passed=false, if_stair_passed=false;
     std::string robot_name, third_cam_name, third_cam_topic, first_cam_topic;
-    int idx=0, img_width, img_height;
+    int idx=0, img_width, img_height, current_score=0, falldown_number=0;
+
 
     ///// ros and tf
     ros::NodeHandle nh;
     ros::Subscriber states_sub, third_cam_sub, first_cam_sub, clock_sub;
+    ros::Publisher spawning_msg_pub;
     ros::ServiceClient model_mover, model_spawner, pauser, unpauser, resetter;
     ros::Timer main_timer;
 
@@ -128,7 +136,6 @@ class khnp_comp: public QWidget{
     void if_felldown(geometry_msgs::Pose pose);
 
     khnp_comp(ros::NodeHandle& n, QWidget *parent=0) : nh(n), QWidget(parent){
-
       ///// params
       nh.param("/img_width", img_width, 480);
       nh.param("/img_height", img_height, 320);
@@ -137,21 +144,27 @@ class khnp_comp: public QWidget{
       nh.param<std::string>("/third_cam_topic", third_cam_topic, "/third_camera/rgb/image_raw/compressed");
       nh.param<std::string>("/first_cam_topic", first_cam_topic, "/d455/depth/rgb_image_raw/compressed");
 
+      ///// Init
+      course_initilization();
+      path = ros::package::getPath("khnp_competition");
+      main_initialize();
+      QT_initialize();
+
       ///// sub pub
       states_sub = nh.subscribe<gazebo_msgs::ModelStates>("/gazebo/model_states", 10, &khnp_comp::states_callback, this);
       third_cam_sub = nh.subscribe<sensor_msgs::CompressedImage>(third_cam_topic, 10, &khnp_comp::third_cam_callback, this);
       first_cam_sub = nh.subscribe<sensor_msgs::CompressedImage>(first_cam_topic, 10, &khnp_comp::first_cam_callback, this);
       clock_sub = nh.subscribe<rosgraph_msgs::Clock>("/clock", 10, &khnp_comp::clock_callback, this);
-      main_timer = nh.createTimer(ros::Duration(1/24.0), &khnp_comp::main_timer_func, this); // every 1/3 second.
+
       model_mover = nh.serviceClient<gazebo_msgs::SetModelState>("/gazebo/set_model_state");
       pauser = nh.serviceClient<std_srvs::Empty>("/gazebo/pause_physics");
       unpauser = nh.serviceClient<std_srvs::Empty>("/gazebo/unpause_physics");
       resetter = nh.serviceClient<std_srvs::Empty>("/gazebo/reset_world");
 
-      ///// Init
-      path = ros::package::getPath("khnp_competition");
-      main_initialize();
-      QT_initialize();
+      spawning_msg_pub = nh.advertise<std_msgs::Empty>("/spawning_model", 1);
+
+      main_timer = nh.createTimer(ros::Duration(1/20.0), &khnp_comp::main_timer_func, this); // every 1/24 second.
+
 
       ROS_WARN("class heritated, starting node...");
     }
@@ -168,9 +181,25 @@ void khnp_comp::main_timer_func(const ros::TimerEvent& event){
     qt_img_update(left_1st_img, first_cam_cv_img_ptr->image);
 
     if(!if_finished){
-      auto temp = real_current_time.clock-fixed_current_time.clock;
+      right_text5->setText(QString::number(current_score,'g',7));
+
+      char stg_string[50];
+      sprintf(stg_string, "%s- %d", courseAB[current_map].name.c_str(), current_course+1);
+      right_text6->setText(QString::fromStdString(stg_string));
+
+      ros::Duration temp2 = courseAB[current_map].time_limit - (real_current_time.clock-fixed_course_time.clock);
+      right_text7->setText(QString::number(temp2.sec + temp2.nsec*1e-9,'g',7));
+
+      ros::Duration temp = real_current_time.clock-fixed_current_time.clock;
       right_text8->setText(QString::number(temp.sec + temp.nsec*1e-9,'g',7));
+      
+      right_text10->setText(QString::number(falldown_number,'g',7));
+      // cout << courseAB[0].name << " " << courseA[0].courses[0].start_position.x << endl;
+      // finish_result();
     }
+  }
+  else if (!third_cam_check){
+    spawning_msg_pub.publish(empty_msg);
   }
   else{
     cout << initialized << qt_initialized << state_check << third_cam_check << first_cam_check << endl;
@@ -179,6 +208,7 @@ void khnp_comp::main_timer_func(const ros::TimerEvent& event){
 
 void khnp_comp::main_initialize(){
   cam_pose.model_name=third_cam_name;
+  robot_pose.model_name=robot_name;
   initialized=true;
   ROS_WARN("%s initialized!", third_cam_name.c_str());
 }
@@ -187,6 +217,7 @@ void khnp_comp::clock_callback(const rosgraph_msgs::Clock::ConstPtr& msg){
   real_current_time = *msg;
   if(!first_clock_in){
     fixed_current_time=real_current_time;
+    fixed_course_time=real_current_time;
     first_clock_in=true;
   }
 }
@@ -285,14 +316,45 @@ void khnp_comp::pause_button_callback(){
 }
 void khnp_comp::reset_button_callback(){
   resetter.call(empty_srv);
-  fixed_current_time=real_current_time;
+  fixed_current_time=real_current_time; 
+  fixed_course_time=real_current_time;
   if_felldown_flag=false;
   qt_icon_update(falldown_button, falldown_img);
+  current_map=0;
+  current_course=0;
+  if_finished=false;
   ROS_WARN("Resetted!!!");
 }
 void khnp_comp::skip_button_callback(){
+  if (current_course+1 < courseAB[current_map].courses.size()){
+    current_course+=1;
+  }
+  else if(current_map+1 < courseAB.size()){
+    current_map+=1;
+    current_course=0;
+    fixed_course_time=real_current_time;
+  }
+  else{
+    ROS_WARN("No more course to skip!");
+    return;
+  }
+  robot_pose.pose.position.x = courseAB[current_map].courses[current_course].start_position.x;
+  robot_pose.pose.position.y = courseAB[current_map].courses[current_course].start_position.y;
+  robot_pose.pose.position.z = courseAB[current_map].courses[current_course].start_position.z+0.6;
+  robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
+  robot_pose.pose.orientation.z = 0.0; robot_pose.pose.orientation.w = 1.0;
+  if (courseAB[current_map].courses[current_course].heading_opposite){
+    robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
+    robot_pose.pose.orientation.z = 1.0; robot_pose.pose.orientation.w = 0.0;
+  }
+  model_move_srv.request.model_state = robot_pose;
+  model_mover.call(model_move_srv);
+
+  if_felldown_flag=false;
+  qt_icon_update(falldown_button, falldown_img);
+
+  skip_check=true;
   ROS_WARN("skip");
-  finish_result();
 }
 
 void khnp_comp::finish_result(){
@@ -306,9 +368,24 @@ void khnp_comp::finish_result(){
     palette = right_text4->palette();
     palette.setColor(QPalette::Window, lightred);
     right_text4->setPalette(palette);
-
-    char result_string[200];
-    sprintf(result_string, "Results:\n\nRefracted corridor: %d \nRough terrain: %d \nManiuplator: %d \nDisturbance: %d \nStair: %d \nPanelty(falldown):  %d", false, true, false, true, false, -120);
+    
+    char result_string[300];
+    if (!skip_check){
+      string _corridor_passed=(if_corridor_passed?"Passed":"Failed (or partially)");
+      string _terrain_passed=(if_terrain_passed?"Passed":"Failed (or partially)");
+      string _manipulator_passed=(if_manipulator_passed?"Passed":"Failed (or partially)");
+      string _stair_passed=(if_stair_passed?"Passed":"Failed (or partially)");
+      string _disturbance_passed=(if_disturbance_passed?"Passed":"Failed (or partially)");
+      sprintf(result_string, "Results:\n\nRefracted corridor: %s \nRough terrain: %s \nManiuplator: %s \nDisturbance: %s \nStair: %s \nPanelty (falldown):  %d", _corridor_passed.c_str(), _terrain_passed.c_str(), _manipulator_passed.c_str(), _stair_passed.c_str(), _disturbance_passed.c_str(), -120);
+    }
+    else{
+      string _corridor_passed=(if_corridor_passed?"Passed":"Failed (or partially)");
+      string _terrain_passed=(if_terrain_passed?"Passed":"Failed (or partially)");
+      string _manipulator_passed=(if_manipulator_passed?"Passed":"Failed (or partially)");
+      string _stair_passed=(if_stair_passed?"Passed":"Failed (or partially)");
+      string _disturbance_passed=(if_disturbance_passed?"Passed":"Failed (or partially)");
+      sprintf(result_string, "Results:\nYou skipped at least once, score invalid!\nRefracted corridor: %s \nRough terrain: %s \nManiuplator: %s \nDisturbance: %s \nStair: %s \nPanelty (falldown):  %d", _corridor_passed.c_str(), _terrain_passed.c_str(), _manipulator_passed.c_str(), _stair_passed.c_str(), _disturbance_passed.c_str(), -120);
+    }
     QString result = QString::fromStdString(result_string);
     right_result->setText(result);
     right_result->setAlignment(Qt::AlignCenter);
@@ -323,8 +400,23 @@ void khnp_comp::finish_result(){
     right_result->setFrameStyle(QFrame::Panel | QFrame::Raised);
     right_result->setLineWidth(3);
 
-    auto temp = real_current_time.clock-fixed_current_time.clock;
+    ros::Duration temp = real_current_time.clock-fixed_current_time.clock;
     right_text8->setText(QString::number(temp.sec + temp.nsec*1e-9,'g',7));
+
+    for (int i = 0; i < cubes_names.size(); ++i){
+      other_pose.model_name = cubes_names[i];
+      other_pose.pose.position.x = cubes_poses[i].x; other_pose.pose.position.y = cubes_poses[i].y; other_pose.pose.position.z = cubes_poses[i].z;
+      other_pose.pose.orientation.x = 0.0; other_pose.pose.orientation.y = 0.0; other_pose.pose.orientation.z = 0.0; other_pose.pose.orientation.w = 1.0;
+      model_move_srv.request.model_state = other_pose;
+      model_mover.call(model_move_srv);
+    }
+    for (int i = 0; i < spheres_names.size(); ++i){
+      other_pose.model_name = spheres_names[i];
+      other_pose.pose.position.x = spheres_poses[i].x; other_pose.pose.position.y = spheres_poses[i].y; other_pose.pose.position.z = spheres_poses[i].z;
+      other_pose.pose.orientation.x = 0.0; other_pose.pose.orientation.y = 0.0; other_pose.pose.orientation.z = 0.0; other_pose.pose.orientation.w = 1.0;
+      model_move_srv.request.model_state = other_pose;
+      model_mover.call(model_move_srv);
+    }
 
     if_finished=true;
 
@@ -365,6 +457,8 @@ void khnp_comp::QT_initialize(){
   right_text6 = new QLabel();
   right_text7 = new QLabel();
   right_text8 = new QLabel();
+  right_text9 = new QLabel();
+  right_text10 = new QLabel();
   right_creator = new QLabel();
   right_logo = new QLabel();
   right_result = new QLabel();
@@ -374,6 +468,7 @@ void khnp_comp::QT_initialize(){
   right_hbox3 = new QHBoxLayout();
   right_hbox4 = new QHBoxLayout();
   right_hbox5 = new QHBoxLayout();
+  right_hbox6 = new QHBoxLayout();
   right_hbox_result = new QHBoxLayout();
   left_vbox = new QVBoxLayout();
   right_vbox = new QVBoxLayout();
@@ -456,7 +551,7 @@ void khnp_comp::QT_initialize(){
   right_text2->setFrameStyle(QFrame::Panel | QFrame::Raised);
   right_text2->setLineWidth(3);
 
-  right_text3->setText(tr("Current stage time"));
+  right_text3->setText(tr("Course left time"));
   right_text3->setAlignment(Qt::AlignCenter);
   right_text3->setAutoFillBackground(true);
   right_text3->setFixedSize(QSize(260,50));
@@ -482,6 +577,19 @@ void khnp_comp::QT_initialize(){
   right_text4->setFrameStyle(QFrame::Panel | QFrame::Raised);
   right_text4->setLineWidth(3);
 
+  right_text9->setText(tr("Fall down count"));
+  right_text9->setAlignment(Qt::AlignCenter);
+  right_text9->setAutoFillBackground(true);
+  right_text9->setFixedSize(QSize(260,50));
+  palette = right_text9->palette();
+  palette.setColor(QPalette::Window, palegreen);
+  right_text9->setPalette(palette);
+  font = right_text9->font();
+  font.setPointSize(14);
+  right_text9->setFont(font);
+  right_text9->setFrameStyle(QFrame::Panel | QFrame::Raised);
+  right_text9->setLineWidth(3);
+
   right_text5->setText(QString::number(0.0,'g',7));
   right_text5->setAlignment(Qt::AlignCenter);
   right_text5->setAutoFillBackground(true);
@@ -490,7 +598,7 @@ void khnp_comp::QT_initialize(){
   font.setPointSize(13);
   right_text5->setFont(font);
 
-  right_text6->setText(tr("corridor-1"));
+  right_text6->setText(tr("Starting"));
   right_text6->setAlignment(Qt::AlignCenter);
   right_text6->setAutoFillBackground(true);
   right_text6->setFixedSize(QSize(260,50));
@@ -513,6 +621,14 @@ void khnp_comp::QT_initialize(){
   font = right_text8->font();
   font.setPointSize(13);
   right_text8->setFont(font);
+
+  right_text10->setText(QString::number(0.0,'g',7));
+  right_text10->setAlignment(Qt::AlignCenter);
+  right_text10->setAutoFillBackground(true);
+  right_text10->setFixedSize(QSize(260,50));
+  font = right_text10->font();
+  font.setPointSize(13);
+  right_text10->setFont(font);
 
   QString creator = "Maintainers (Report any bugs please)\n\nEungchang Mason Lee (email: eungchang_mason@kaist.ac.kr)\nJunho Choi (email: cjh6685kr@kaist.ac.kr)";
   right_creator->setText(creator);
@@ -552,6 +668,8 @@ void khnp_comp::QT_initialize(){
   right_hbox3->addWidget(right_text7);
   right_hbox4->addWidget(right_text4);
   right_hbox4->addWidget(right_text8);
+  right_hbox6->addWidget(right_text9);
+  right_hbox6->addWidget(right_text10);
   right_hbox5->addWidget(right_creator);
   right_hbox5->addWidget(right_logo);
   right_hbox5->setAlignment(Qt::AlignCenter);
@@ -563,6 +681,7 @@ void khnp_comp::QT_initialize(){
   right_vbox->addLayout(right_hbox2);
   right_vbox->addLayout(right_hbox3);
   right_vbox->addLayout(right_hbox4);
+  right_vbox->addLayout(right_hbox6);
   right_vbox->addLayout(right_hbox5);
   right_vbox->setAlignment(Qt::AlignCenter);
   right_vbox->addLayout(right_hbox_result);

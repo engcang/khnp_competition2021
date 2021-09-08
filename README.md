@@ -12,6 +12,7 @@
 
 + Clone the git
 ~~~shell
+$ cd <your_workspace>/src
 $ git clone --recursive https://github.com/engcang/khnp_competition2021
 ~~~
 
@@ -50,12 +51,16 @@ $ roslaunch khnp_competition main.launch world_name:=$(pwd)/course_A.world
 
 <!-- Edit this part with your own algorithms -->
 
+
+
 <!-- Do not touch below -->
   <!--  MAIN code -->
 
-  ...
+  ......
 
   <node name="khnp_competition_code" pkg="khnp_competition" type="khnp_competition_node" output="screen"/>
+
+  ......
 
 </launch>
 ```
