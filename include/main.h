@@ -13,6 +13,7 @@
 #include <QIcon>
 
 //QT utils
+#include <QTimer> // important, or GUI freezes
 #include <QFrame>
 #include <QString>
 #include <QPalette>
@@ -26,6 +27,7 @@
 #include <string>
 #include <math.h> // pow
 #include <vector>
+#include <random> //random
 
 ///// Utils
 #include <tf/LinearMath/Quaternion.h> // to Quaternion_to_euler
@@ -61,16 +63,20 @@ void signal_handler(sig_atomic_t s) {
   std::cout << "You pressed Ctrl + C, exiting" << std::endl;
   exit(1);
 }
-double euclidean_dist(double x1, double y1, double z1, double x2, double y2, double z2){
-	return sqrt(pow(x1-x2,2) + pow(y1-y2,2) + pow(z1-z2,2));
+template <typename T1, typename T2, typename T3>
+bool within_range(T1 a, T2 b, T3 c){
+  if (abs(a.x-b.x)<c.x && abs(a.y-b.y)<c.y && abs(a.z-b.z)<c.z)
+    return true;
+  else
+    return false;
 }
-
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class khnp_comp: public QWidget{
   private:
-    // no meaning for private, just separate QT variables
+    // no meaning for private, just separated QT variables
+    QTimer *mainTimer;
     QHBoxLayout *main_hbox;
     QVBoxLayout *left_vbox, *right_vbox;
     QHBoxLayout *right_hbox_btns, *right_hbox1, *right_hbox2, *right_hbox3, *right_hbox4, *right_hbox5, *right_hbox6, *right_hbox_result;
@@ -93,6 +99,7 @@ class khnp_comp: public QWidget{
     string path;
     bool paused_check=false, skip_check=false;
 
+    void QT_initialize();
     void qt_img_update(QLabel *label, cv::Mat img);
     void qt_icon_update(QPushButton *btn, cv::Mat img);
     void falldown_button_callback();
@@ -109,13 +116,14 @@ class khnp_comp: public QWidget{
     std_srvs::Empty empty_srv;
     std_msgs::Empty empty_msg;
     sensor_msgs::CompressedImage third_cam_img_msg, first_cam_img_msg;
-    rosgraph_msgs::Clock real_current_time, fixed_current_time, fixed_course_time;
+    rosgraph_msgs::Clock real_current_time, fixed_current_time, fixed_course_time, fell_down_time;
 
     bool initialized=false, qt_initialized=false, state_check=false, clock_check=false, third_cam_check=false, first_cam_check=false;
-    bool first_clock_in=false, if_felldown_flag=false, if_finished=false;
-    bool if_corridor_passed=false, if_disturbance_passed=false, if_terrain_passed=false, if_manipulator_passed=false, if_stair_passed=false;
-    std::string robot_name, third_cam_name, third_cam_topic, first_cam_topic;
-    int idx=0, img_width, img_height, current_score=0, falldown_number=0;
+    bool first_clock_in=false, if_felldown_flag=false, tmp_felldown_counter=false, if_finished=false;
+    std::string robot_name, cube_name, third_cam_name, third_cam_topic, first_cam_topic;
+    int robot_idx=0, cube_idx=0, img_width, img_height, current_score=0, falldown_score=0;
+    position3d tolerance={0.15, 0.6, 0.5};
+    position3d cube_tolerance={0.25, 0.6, 1.5};
 
 
     ///// ros and tf
@@ -123,23 +131,30 @@ class khnp_comp: public QWidget{
     ros::Subscriber states_sub, third_cam_sub, first_cam_sub, clock_sub;
     ros::Publisher spawning_msg_pub;
     ros::ServiceClient model_mover, model_spawner, pauser, unpauser, resetter;
-    ros::Timer main_timer;
+    ros::Timer main_timer, sphere_timer, felldown_timer;
 
+    void main_timer_func(const ros::TimerEvent& event);
+    void main_initialize();
+    void sphere_time_func(const ros::TimerEvent& event);
+    void if_felldown_time_func(const ros::TimerEvent& event);
+    bool if_felldown(geometry_msgs::Pose pose);
+    void cam_move(geometry_msgs::Pose pose);
+    void if_time_over(double time_left);
+    void if_started_course(geometry_msgs::Pose pose);
+    void if_passed_course(geometry_msgs::Pose pose);
+    void move_to_next_course();
+    bool move_to_next_map();
     void states_callback(const gazebo_msgs::ModelStates::ConstPtr& msg);
     void third_cam_callback(const sensor_msgs::CompressedImage::ConstPtr& msg);
     void first_cam_callback(const sensor_msgs::CompressedImage::ConstPtr& msg);
     void clock_callback(const rosgraph_msgs::Clock::ConstPtr& msg);
-    void main_timer_func(const ros::TimerEvent& event);
-    void main_initialize();
-    void QT_initialize();
-    void cam_move(geometry_msgs::Pose pose);
-    void if_felldown(geometry_msgs::Pose pose);
 
     khnp_comp(ros::NodeHandle& n, QWidget *parent=0) : nh(n), QWidget(parent){
       ///// params
       nh.param("/img_width", img_width, 480);
       nh.param("/img_height", img_height, 320);
       nh.param<std::string>("/robot_name", robot_name, "/");
+      nh.param<std::string>("/cube_name", cube_name, "b2");
       nh.param<std::string>("/third_cam_name", third_cam_name, "third_camera");
       nh.param<std::string>("/third_cam_topic", third_cam_topic, "/third_camera/rgb/image_raw/compressed");
       nh.param<std::string>("/first_cam_topic", first_cam_topic, "/d455/depth/rgb_image_raw/compressed");
@@ -151,51 +166,49 @@ class khnp_comp: public QWidget{
       QT_initialize();
 
       ///// sub pub
-      states_sub = nh.subscribe<gazebo_msgs::ModelStates>("/gazebo/model_states", 10, &khnp_comp::states_callback, this);
+      states_sub = nh.subscribe<gazebo_msgs::ModelStates>("/gazebo/model_states", 3, &khnp_comp::states_callback, this);
       third_cam_sub = nh.subscribe<sensor_msgs::CompressedImage>(third_cam_topic, 10, &khnp_comp::third_cam_callback, this);
       first_cam_sub = nh.subscribe<sensor_msgs::CompressedImage>(first_cam_topic, 10, &khnp_comp::first_cam_callback, this);
-      clock_sub = nh.subscribe<rosgraph_msgs::Clock>("/clock", 10, &khnp_comp::clock_callback, this);
+      clock_sub = nh.subscribe<rosgraph_msgs::Clock>("/clock", 3, &khnp_comp::clock_callback, this);
 
       model_mover = nh.serviceClient<gazebo_msgs::SetModelState>("/gazebo/set_model_state");
       pauser = nh.serviceClient<std_srvs::Empty>("/gazebo/pause_physics");
       unpauser = nh.serviceClient<std_srvs::Empty>("/gazebo/unpause_physics");
       resetter = nh.serviceClient<std_srvs::Empty>("/gazebo/reset_world");
 
-      spawning_msg_pub = nh.advertise<std_msgs::Empty>("/spawning_model", 1);
+      spawning_msg_pub = nh.advertise<std_msgs::Empty>("/spawning_model", 2);
 
-      main_timer = nh.createTimer(ros::Duration(1/20.0), &khnp_comp::main_timer_func, this); // every 1/24 second.
+      // mainTimer = new QTimer(this);
+      // connect( mainTimer, SIGNAL(timeout()), this, SLOT(main_timer_func()) );
+      // mainTimer->start(15); //15Hz
+      main_timer = nh.createTimer(ros::Duration(1/15.0), &khnp_comp::main_timer_func, this); // every 1/24 second.
+      sphere_timer = nh.createTimer(ros::Duration(1/2.0), &khnp_comp::sphere_time_func, this); // every 1/2 second.
+      felldown_timer = nh.createTimer(ros::Duration(1/3.0), &khnp_comp::if_felldown_time_func, this); // every 1/3 second.
 
 
       ROS_WARN("class heritated, starting node...");
     }
+    ~khnp_comp(){}
 };
 
 void khnp_comp::main_timer_func(const ros::TimerEvent& event){
+// void khnp_comp::main_timer_func(){
   if (initialized && qt_initialized && state_check && third_cam_check && first_cam_check){
-    cam_move(states.pose[idx]);
+    cam_move(states.pose[robot_idx]);
 
-    if(!if_felldown_flag){
-      if_felldown(states.pose[idx]);
-    }
     qt_img_update(left_3rd_img, third_cam_cv_img_ptr->image);
     qt_img_update(left_1st_img, first_cam_cv_img_ptr->image);
 
     if(!if_finished){
-      right_text5->setText(QString::number(current_score,'g',7));
-
-      char stg_string[50];
-      sprintf(stg_string, "%s- %d", courseAB[current_map].name.c_str(), current_course+1);
-      right_text6->setText(QString::fromStdString(stg_string));
-
       ros::Duration temp2 = courseAB[current_map].time_limit - (real_current_time.clock-fixed_course_time.clock);
       right_text7->setText(QString::number(temp2.sec + temp2.nsec*1e-9,'g',7));
 
       ros::Duration temp = real_current_time.clock-fixed_current_time.clock;
       right_text8->setText(QString::number(temp.sec + temp.nsec*1e-9,'g',7));
       
-      right_text10->setText(QString::number(falldown_number,'g',7));
-      // cout << courseAB[0].name << " " << courseA[0].courses[0].start_position.x << endl;
-      // finish_result();
+      if_time_over(temp2.sec + temp2.nsec*1e-9);
+      if_started_course(states.pose[robot_idx]);
+      if_passed_course(states.pose[robot_idx]);
     }
   }
   else if (!third_cam_check){
@@ -210,16 +223,6 @@ void khnp_comp::main_initialize(){
   cam_pose.model_name=third_cam_name;
   robot_pose.model_name=robot_name;
   initialized=true;
-  ROS_WARN("%s initialized!", third_cam_name.c_str());
-}
-
-void khnp_comp::clock_callback(const rosgraph_msgs::Clock::ConstPtr& msg){
-  real_current_time = *msg;
-  if(!first_clock_in){
-    fixed_current_time=real_current_time;
-    fixed_course_time=real_current_time;
-    first_clock_in=true;
-  }
 }
 
 void khnp_comp::cam_move(geometry_msgs::Pose pose){
@@ -229,48 +232,6 @@ void khnp_comp::cam_move(geometry_msgs::Pose pose){
   model_move_srv.request.model_state = cam_pose;
   model_mover.call(model_move_srv);
 }
-void khnp_comp::if_felldown(geometry_msgs::Pose pose){
-  double curr_roll, curr_pitch, curr_yaw;
-  tf::Quaternion q(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
-  tf::Matrix3x3 m(q);
-  m.getRPY(curr_roll, curr_pitch, curr_yaw);
-
-  if (abs(curr_roll)>1.309 or abs(curr_pitch)>1.309){
-    ROS_WARN("Fell down");
-    qt_icon_update(falldown_button, fell_img);
-    if_felldown_flag=true;
-  }
-  // else if(){
-
-  // }
-  // else if(){
-
-  // }
-}
-
-void khnp_comp::states_callback(const gazebo_msgs::ModelStates::ConstPtr& msg){
-  states = *msg;
-  for (int i = 0; i < states.name.size(); ++i)
-  {
-    if (states.name[i]==robot_name){
-      idx=i;
-      state_check=true;
-    }
-  }
-}
-
-void khnp_comp::third_cam_callback(const sensor_msgs::CompressedImage::ConstPtr& msg){
-  third_cam_img_msg = *msg;
-  third_cam_cv_img_ptr = cv_bridge::toCvCopy(third_cam_img_msg);
-  third_cam_check=true;
-}
-void khnp_comp::first_cam_callback(const sensor_msgs::CompressedImage::ConstPtr& msg){
-  first_cam_img_msg = *msg;
-  first_cam_cv_img_ptr = cv_bridge::toCvCopy(first_cam_img_msg);
-  first_cam_check=true;
-}
-
-
 
 void khnp_comp::qt_img_update(QLabel *label, cv::Mat img){
   cv::Mat vis_img;
@@ -292,11 +253,293 @@ void khnp_comp::qt_icon_update(QPushButton *btn, cv::Mat img){
   btn->setIcon(pixmap);
 }
 
+bool khnp_comp::if_felldown(geometry_msgs::Pose pose){
+  double curr_roll, curr_pitch, curr_yaw;
+  tf::Quaternion q(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
+  tf::Matrix3x3 m(q);
+  m.getRPY(curr_roll, curr_pitch, curr_yaw);
+  if (abs(curr_roll)>1.309 or abs(curr_pitch)>1.309)
+    return true;
+  else return false;
+  // else if(){
+
+  // }
+  // else if(){
+
+  // }
+}
+
+void khnp_comp::if_felldown_time_func(const ros::TimerEvent& event){
+  if (initialized && qt_initialized && state_check && third_cam_check && first_cam_check){
+    if(!if_felldown_flag){
+      if(!tmp_felldown_counter){
+        if (if_felldown(states.pose[robot_idx])){
+          ROS_WARN("Fell down check start");
+          tmp_felldown_counter=true;
+          fell_down_time=real_current_time;
+        }
+      }
+      else if (tmp_felldown_counter){
+        if (if_felldown(states.pose[robot_idx])){ // still fell down
+          if ( (real_current_time.clock - fell_down_time.clock).toSec() >= 5.0 ){
+            ROS_WARN("Fell down!");
+            if_felldown_flag=true;
+            qt_icon_update(falldown_button, fell_img);
+            current_score-=3;
+            falldown_score-=3;
+            right_text5->setText(QString::number(current_score,'g',7));
+            right_text10->setText(QString::number(falldown_score,'g',7));
+            tmp_felldown_counter=false;
+          }
+        }
+        else{ // stand again
+          ROS_WARN("Stood up again");
+          tmp_felldown_counter=false;
+        }
+      }
+    }
+    else if(if_felldown_flag){ // still fell down, longer than 5 seconds
+      if(!tmp_felldown_counter){
+        if (if_felldown(states.pose[robot_idx])){
+          ROS_WARN("Still fell down check start");
+          tmp_felldown_counter=true;
+        }
+      }
+      else if (tmp_felldown_counter){
+        if (if_felldown(states.pose[robot_idx])){
+          if ( (real_current_time.clock - fell_down_time.clock).toSec() >= 125.0 ){
+            ROS_WARN("Still fell down longer than 2 mins");
+            qt_icon_update(falldown_button, falldown_img);
+            current_score-=2;
+            falldown_score-=2;
+            right_text5->setText(QString::number(current_score,'g',7));
+            right_text10->setText(QString::number(falldown_score,'g',7));
+            if_felldown_flag=false;
+            tmp_felldown_counter=false;
+            move_to_next_course();
+          }
+        }
+        else{ // stand again
+          ROS_WARN("Stood up again");
+          qt_icon_update(falldown_button, falldown_img);
+          tmp_felldown_counter=false;
+          if_felldown_flag=false;
+        }
+      }
+    }
+  }
+}
+
+void khnp_comp::sphere_time_func(const ros::TimerEvent& event){
+  if (initialized && qt_initialized && state_check && third_cam_check && first_cam_check){
+    if(courseAB[current_map].name==disturbance_map.name){
+      if (!spheres_throw_vec[current_course].if_throw){
+        if(within_range(states.pose[robot_idx].position, spheres_throw_vec[current_course].reference_position, tolerance)){
+
+          if (spheres_throw_vec[current_course].direction=="back"){
+            other_pose.pose.position.x = states.pose[robot_idx].position.x-1.0;
+            other_pose.pose.position.y = states.pose[robot_idx].position.y; 
+            other_pose.twist.linear.x = 5.0;
+            other_pose.twist.linear.y = 0.0;
+          }
+          else if (spheres_throw_vec[current_course].direction=="front"){
+            other_pose.pose.position.x = states.pose[robot_idx].position.x+1.0;
+            other_pose.pose.position.y = states.pose[robot_idx].position.y; 
+            other_pose.twist.linear.x = -5.0;
+            other_pose.twist.linear.y = 0.0;
+          }
+          else if (spheres_throw_vec[current_course].direction=="left"){
+            other_pose.pose.position.x = states.pose[robot_idx].position.x;
+            other_pose.pose.position.y = states.pose[robot_idx].position.y+1.0; 
+            other_pose.twist.linear.x = 0.0;
+            other_pose.twist.linear.y = -5.0;
+          }
+          else if (spheres_throw_vec[current_course].direction=="right"){
+            other_pose.pose.position.x = states.pose[robot_idx].position.x;
+            other_pose.pose.position.y = states.pose[robot_idx].position.y-1.0; 
+            other_pose.twist.linear.x = 0.0;
+            other_pose.twist.linear.y = 5.0;
+          }
+          else if (spheres_throw_vec[current_course].direction=="random"){
+            random_device rd;  mt19937 gen(rd());  std::uniform_int_distribution<int> dis(0, 1000); int rand_tmp = dis(gen);
+            double rand_tmp2 = sqrt( 1 - pow(double(rand_tmp)/1000.0, 2) );
+            other_pose.pose.position.x = states.pose[robot_idx].position.x+(double)rand_tmp/1000.0;
+            other_pose.pose.position.y = states.pose[robot_idx].position.y+rand_tmp2; 
+            other_pose.twist.linear.x = -(double)rand_tmp/200.0;
+            other_pose.twist.linear.y = -rand_tmp2*5.0;
+          }
+          other_pose.pose.position.z = states.pose[robot_idx].position.z+0.8;
+          other_pose.twist.linear.z = 0.0;
+          other_pose.model_name = spheres_names[current_course];
+          other_pose.pose.orientation.x = 0.0; other_pose.pose.orientation.y = 0.0; other_pose.pose.orientation.z = 0.0; other_pose.pose.orientation.w = 1.0;
+          model_move_srv.request.model_state = other_pose;
+          model_mover.call(model_move_srv);
+
+          spheres_throw_vec[current_course].if_throw=true;
+          spheres_throw_vec[current_course].time_counter=real_current_time;
+        }
+      }
+      else if(spheres_throw_vec[current_course].if_throw){
+        if ( (real_current_time.clock - spheres_throw_vec[current_course].time_counter.clock).toSec() >= 3.0){
+          other_pose.pose.position.x = spheres_poses[current_course].x;
+          other_pose.pose.position.y = spheres_poses[current_course].y; 
+          other_pose.pose.position.z = spheres_poses[current_course].z;
+          other_pose.twist.linear.x = 0.0; other_pose.twist.linear.y = 0.0; other_pose.twist.linear.z = 0.0;
+          other_pose.pose.orientation.x = 0.0; other_pose.pose.orientation.y = 0.0; other_pose.pose.orientation.z = 0.0; other_pose.pose.orientation.w = 1.0;
+          model_move_srv.request.model_state = other_pose;
+          model_mover.call(model_move_srv);          
+        }
+      }
+    }
+  }
+}
+
+
+void khnp_comp::move_to_next_course(){
+  if (current_course+1 < courseAB[current_map].courses.size()){
+    current_course+=1;
+    courseAB[current_map].if_passed_map=false;
+  }
+  else if(current_map+1 < courseAB.size()){
+    current_map+=1;
+    current_course=0;
+    courseAB[current_map-1].if_passed_map=false;
+    fixed_course_time=real_current_time;
+  }
+  else{
+    ROS_WARN("No more course to proceed!");
+    return;
+  }
+  robot_pose.pose.position.x = courseAB[current_map].courses[current_course].start_position.x;
+  robot_pose.pose.position.y = courseAB[current_map].courses[current_course].start_position.y;
+  robot_pose.pose.position.z = courseAB[current_map].courses[current_course].start_position.z+0.6;
+  robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
+  robot_pose.pose.orientation.z = 0.0; robot_pose.pose.orientation.w = 1.0;
+  if (courseAB[current_map].courses[current_course].heading_opposite){
+    robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
+    robot_pose.pose.orientation.z = 1.0; robot_pose.pose.orientation.w = 0.0;
+  }
+  model_move_srv.request.model_state = robot_pose;
+  model_mover.call(model_move_srv);
+}
+
+bool khnp_comp::move_to_next_map(){
+  bool update;
+  if(current_map+1 < courseAB.size()){
+    current_map+=1;
+    current_course=0;
+    fixed_course_time=real_current_time;
+    update=true;
+  }
+  else{
+    ROS_WARN("No more map to proceed!");
+    fixed_course_time=real_current_time;
+    update=false;
+  }
+  robot_pose.pose.position.x = courseAB[current_map].courses[current_course].start_position.x;
+  robot_pose.pose.position.y = courseAB[current_map].courses[current_course].start_position.y;
+  robot_pose.pose.position.z = courseAB[current_map].courses[current_course].start_position.z+0.6;
+  robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
+  robot_pose.pose.orientation.z = 0.0; robot_pose.pose.orientation.w = 1.0;
+  if (courseAB[current_map].courses[current_course].heading_opposite){
+    robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
+    robot_pose.pose.orientation.z = 1.0; robot_pose.pose.orientation.w = 0.0;
+  }
+  model_move_srv.request.model_state = robot_pose;
+  model_mover.call(model_move_srv);
+  return update;
+}
+
+void khnp_comp::if_time_over(double time_left){
+  if (time_left<=0){
+    if (move_to_next_map()){
+      courseAB[current_map-1].if_passed_map=false;
+    }
+    if_felldown_flag=false;
+    qt_icon_update(falldown_button, falldown_img);
+  }
+}
+void khnp_comp::if_started_course(geometry_msgs::Pose pose){
+  if(within_range(pose.position, courseAB[current_map].courses[current_course].start_position, tolerance)){
+    char stg_string[20];
+    sprintf(stg_string, "%s- %d", courseAB[current_map].name.c_str(), current_course+1);
+    right_text6->setText(QString::fromStdString(stg_string));
+  }
+}
+void khnp_comp::if_passed_course(geometry_msgs::Pose pose){
+  if(within_range(pose.position, courseAB[current_map].courses[current_course].finish_position, tolerance)){
+    if(courseAB[current_map].name == manipulator_map.name){
+      if (within_range(states.pose[cube_idx].position, courseAB[current_map].courses[current_course].finish_position, cube_tolerance)){
+        current_score+=courseAB[current_map].courses[current_course].score;
+        right_text5->setText(QString::number(current_score,'g',7));
+      }
+    }
+    else{
+      current_score+=courseAB[current_map].courses[current_course].score;
+      right_text5->setText(QString::number(current_score,'g',7));
+    }
+    if (current_course+1 < courseAB[current_map].courses.size()){
+      current_course+=1;
+    }
+    else if(current_map+1 < courseAB.size()){
+      current_map+=1;
+      current_course=0;
+      fixed_course_time=real_current_time;
+    }
+    if (current_course+1 >= courseAB[current_map].courses.size() && current_map+1 >= courseAB.size()){
+      finish_result();
+    }
+  }
+}
+
+void khnp_comp::clock_callback(const rosgraph_msgs::Clock::ConstPtr& msg){
+  real_current_time = *msg;
+  if(!first_clock_in){
+    fixed_current_time=real_current_time;
+    fixed_course_time=real_current_time;
+    first_clock_in=true;
+  }
+}
+
+void khnp_comp::states_callback(const gazebo_msgs::ModelStates::ConstPtr& msg){
+  states = *msg;
+  for (int i = 0; i < states.name.size(); ++i)
+  {
+    if (states.name[i]==robot_name){
+      robot_idx=i;
+      state_check=true;
+    }
+    else if (states.name[i]==cube_name){
+      cube_idx=i;
+    }
+  }
+}
+
+void khnp_comp::third_cam_callback(const sensor_msgs::CompressedImage::ConstPtr& msg){
+  third_cam_img_msg = *msg;
+  third_cam_cv_img_ptr = cv_bridge::toCvCopy(third_cam_img_msg);
+  if(!third_cam_check){
+    ROS_WARN("%s initialized!", third_cam_name.c_str());
+    third_cam_check=true;
+  }
+}
+void khnp_comp::first_cam_callback(const sensor_msgs::CompressedImage::ConstPtr& msg){
+  first_cam_img_msg = *msg;
+  first_cam_cv_img_ptr = cv_bridge::toCvCopy(first_cam_img_msg);
+  first_cam_check=true;
+}
+
 void khnp_comp::falldown_button_callback(){
   if(!if_felldown_flag){
     qt_icon_update(falldown_button, fell_img);
     ROS_WARN("Fell down from user");
     if_felldown_flag=true;
+    tmp_felldown_counter=true;
+    current_score-=3;
+    falldown_score-=3;
+    fell_down_time=real_current_time;
+    right_text5->setText(QString::number(current_score,'g',7));
+    right_text10->setText(QString::number(falldown_score,'g',7));
   }
 }
 void khnp_comp::pause_button_callback(){
@@ -322,34 +565,27 @@ void khnp_comp::reset_button_callback(){
   qt_icon_update(falldown_button, falldown_img);
   current_map=0;
   current_course=0;
+  current_score=0;
+  falldown_score=0;
+  palette = right_text1->palette();
+  palette.setColor(QPalette::Window, palegreen);
+  right_text1->setPalette(palette);
+  palette = right_text4->palette();
+  palette.setColor(QPalette::Window, palegreen);
+  right_text4->setPalette(palette);
+  right_text1->setText(tr("Current score"));
+  right_text4->setText(tr("Current total time"));
+  right_text5->setText(QString::number(current_score,'g',7));
+  right_text6->setText(QString::fromStdString("Starting again"));
+  right_text10->setText(QString::number(falldown_score,'g',7));
+  for (int i = 0; i < spheres_throw_vec.size(); ++i){
+    spheres_throw_vec[i].if_throw=false;
+  }
   if_finished=false;
   ROS_WARN("Resetted!!!");
 }
 void khnp_comp::skip_button_callback(){
-  if (current_course+1 < courseAB[current_map].courses.size()){
-    current_course+=1;
-  }
-  else if(current_map+1 < courseAB.size()){
-    current_map+=1;
-    current_course=0;
-    fixed_course_time=real_current_time;
-  }
-  else{
-    ROS_WARN("No more course to skip!");
-    return;
-  }
-  robot_pose.pose.position.x = courseAB[current_map].courses[current_course].start_position.x;
-  robot_pose.pose.position.y = courseAB[current_map].courses[current_course].start_position.y;
-  robot_pose.pose.position.z = courseAB[current_map].courses[current_course].start_position.z+0.6;
-  robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
-  robot_pose.pose.orientation.z = 0.0; robot_pose.pose.orientation.w = 1.0;
-  if (courseAB[current_map].courses[current_course].heading_opposite){
-    robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
-    robot_pose.pose.orientation.z = 1.0; robot_pose.pose.orientation.w = 0.0;
-  }
-  model_move_srv.request.model_state = robot_pose;
-  model_mover.call(model_move_srv);
-
+  move_to_next_course();
   if_felldown_flag=false;
   qt_icon_update(falldown_button, falldown_img);
 
@@ -370,21 +606,22 @@ void khnp_comp::finish_result(){
     right_text4->setPalette(palette);
     
     char result_string[300];
+    string _one_passed=(courseAB[0].if_passed_map?"Passed":"Failed (or partially)");
+    string _two_passed=(courseAB[1].if_passed_map?"Passed":"Failed (or partially)");
+    string _three_passed=(courseAB[2].if_passed_map?"Passed":"Failed (or partially)");
+    string _four_passed=(courseAB[3].if_passed_map?"Passed":"Failed (or partially)");
+    string _five_passed=(courseAB[4].if_passed_map?"Passed":"Failed (or partially)");
     if (!skip_check){
-      string _corridor_passed=(if_corridor_passed?"Passed":"Failed (or partially)");
-      string _terrain_passed=(if_terrain_passed?"Passed":"Failed (or partially)");
-      string _manipulator_passed=(if_manipulator_passed?"Passed":"Failed (or partially)");
-      string _stair_passed=(if_stair_passed?"Passed":"Failed (or partially)");
-      string _disturbance_passed=(if_disturbance_passed?"Passed":"Failed (or partially)");
-      sprintf(result_string, "Results:\n\nRefracted corridor: %s \nRough terrain: %s \nManiuplator: %s \nDisturbance: %s \nStair: %s \nPanelty (falldown):  %d", _corridor_passed.c_str(), _terrain_passed.c_str(), _manipulator_passed.c_str(), _stair_passed.c_str(), _disturbance_passed.c_str(), -120);
+      sprintf(result_string, "Results:\n\n%s: %s \n%s: %s \n%s: %s \n%s: %s \n%s: %s \nPenalty (falldown): %d", //
+        courseAB[0].name.c_str(), _one_passed.c_str(), courseAB[1].name.c_str(), _two_passed.c_str(), //
+        courseAB[2].name.c_str(), _three_passed.c_str(), courseAB[3].name.c_str(), _four_passed.c_str(), // 
+        courseAB[4].name.c_str(), _five_passed.c_str(), falldown_score);
     }
     else{
-      string _corridor_passed=(if_corridor_passed?"Passed":"Failed (or partially)");
-      string _terrain_passed=(if_terrain_passed?"Passed":"Failed (or partially)");
-      string _manipulator_passed=(if_manipulator_passed?"Passed":"Failed (or partially)");
-      string _stair_passed=(if_stair_passed?"Passed":"Failed (or partially)");
-      string _disturbance_passed=(if_disturbance_passed?"Passed":"Failed (or partially)");
-      sprintf(result_string, "Results:\nYou skipped at least once, score invalid!\nRefracted corridor: %s \nRough terrain: %s \nManiuplator: %s \nDisturbance: %s \nStair: %s \nPanelty (falldown):  %d", _corridor_passed.c_str(), _terrain_passed.c_str(), _manipulator_passed.c_str(), _stair_passed.c_str(), _disturbance_passed.c_str(), -120);
+      sprintf(result_string, "Results:\nYou skipped at least once, score invalid!\n%s: %s \n%s: %s \n%s: %s \n%s: %s \n%s: %s \nPenalty (falldown): %d", //
+        courseAB[0].name.c_str(), _one_passed.c_str(), courseAB[1].name.c_str(), _two_passed.c_str(), //
+        courseAB[2].name.c_str(), _three_passed.c_str(), courseAB[3].name.c_str(), _four_passed.c_str(), // 
+        courseAB[4].name.c_str(), _five_passed.c_str(), falldown_score);
     }
     QString result = QString::fromStdString(result_string);
     right_result->setText(result);
@@ -416,6 +653,7 @@ void khnp_comp::finish_result(){
       other_pose.pose.orientation.x = 0.0; other_pose.pose.orientation.y = 0.0; other_pose.pose.orientation.z = 0.0; other_pose.pose.orientation.w = 1.0;
       model_move_srv.request.model_state = other_pose;
       model_mover.call(model_move_srv);
+      spheres_throw_vec[i].if_throw=false;
     }
 
     if_finished=true;
@@ -577,7 +815,7 @@ void khnp_comp::QT_initialize(){
   right_text4->setFrameStyle(QFrame::Panel | QFrame::Raised);
   right_text4->setLineWidth(3);
 
-  right_text9->setText(tr("Fall down count"));
+  right_text9->setText(tr("Fall down Penalty"));
   right_text9->setAlignment(Qt::AlignCenter);
   right_text9->setAutoFillBackground(true);
   right_text9->setFixedSize(QSize(260,50));
@@ -699,6 +937,7 @@ void khnp_comp::QT_initialize(){
   connect(pause_button, &QPushButton::clicked, this, &khnp_comp::pause_button_callback);
   connect(reset_button, &QPushButton::clicked, this, &khnp_comp::reset_button_callback);
   connect(skip_button, &QPushButton::clicked, this, &khnp_comp::skip_button_callback);
+
   qt_initialized=true;
 }
 
