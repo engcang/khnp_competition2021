@@ -55,9 +55,9 @@ void course_initilization(){
 	cubes_names.push_back("b1"); cubes_names.push_back("b2"); cubes_names.push_back("b3");
 	cubes_names.push_back("b4"); cubes_names.push_back("b5");
 
-	spheres_poses.push_back({58.75, -4, 0.6}); spheres_poses.push_back({64.75, -4, 0.6});
-	spheres_poses.push_back({70.75, -4, 0.6}); spheres_poses.push_back({76.75, -4, 0.6});
-	spheres_poses.push_back({82.75, -4, 0.6});
+	spheres_poses.push_back({58.75, -4, 0.3}); spheres_poses.push_back({64.75, -4, 0.3});
+	spheres_poses.push_back({70.75, -4, 0.3}); spheres_poses.push_back({76.75, -4, 0.3});
+	spheres_poses.push_back({82.75, -4, 0.3});
 	spheres_names.push_back("ds1"); spheres_names.push_back("ds2");
 	spheres_names.push_back("ds3"); spheres_names.push_back("ds4");
 	spheres_names.push_back("ds5");

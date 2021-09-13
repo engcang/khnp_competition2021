@@ -123,6 +123,7 @@ class khnp_comp: public QWidget{
     std::string robot_name, cube_name, third_cam_name, third_cam_topic, first_cam_topic;
     int robot_idx=0, cube_idx=0, img_width, img_height, current_score=0, falldown_score=0;
     position3d tolerance={0.15, 0.6, 0.5};
+    position3d sphere_tolerance={0.15, 1.0, 0.5};
     position3d cube_tolerance={0.25, 0.6, 1.5};
 
 
@@ -142,6 +143,7 @@ class khnp_comp: public QWidget{
     void if_time_over(double time_left);
     void if_started_course(geometry_msgs::Pose pose);
     void if_passed_course(geometry_msgs::Pose pose);
+    void move_to_current_course();
     void move_to_next_course();
     bool move_to_next_map();
     void states_callback(const gazebo_msgs::ModelStates::ConstPtr& msg);
@@ -282,7 +284,7 @@ void khnp_comp::if_felldown_time_func(const ros::TimerEvent& event){
       else if (tmp_felldown_counter){
         if (if_felldown(states.pose[robot_idx])){ // still fell down
           if ( (real_current_time.clock - fell_down_time.clock).toSec() >= 5.0 ){
-            ROS_WARN("Fell down!");
+            ROS_WARN("Fell down! penalty!");
             if_felldown_flag=true;
             qt_icon_update(falldown_button, fell_img);
             current_score-=3;
@@ -308,7 +310,7 @@ void khnp_comp::if_felldown_time_func(const ros::TimerEvent& event){
       else if (tmp_felldown_counter){
         if (if_felldown(states.pose[robot_idx])){
           if ( (real_current_time.clock - fell_down_time.clock).toSec() >= 125.0 ){
-            ROS_WARN("Still fell down longer than 2 mins");
+            ROS_WARN("Still fell down longer than 2 mins, penalty!");
             qt_icon_update(falldown_button, falldown_img);
             current_score-=2;
             falldown_score-=2;
@@ -316,7 +318,8 @@ void khnp_comp::if_felldown_time_func(const ros::TimerEvent& event){
             right_text10->setText(QString::number(falldown_score,'g',7));
             if_felldown_flag=false;
             tmp_felldown_counter=false;
-            move_to_next_course();
+            move_to_current_course();
+            fixed_current_time.clock -= ros::Duration(120.0);
           }
         }
         else{ // stand again
@@ -334,7 +337,7 @@ void khnp_comp::sphere_time_func(const ros::TimerEvent& event){
   if (initialized && qt_initialized && state_check && third_cam_check && first_cam_check){
     if(courseAB[current_map].name==disturbance_map.name){
       if (!spheres_throw_vec[current_course].if_throw){
-        if(within_range(states.pose[robot_idx].position, spheres_throw_vec[current_course].reference_position, tolerance)){
+        if(within_range(states.pose[robot_idx].position, spheres_throw_vec[current_course].reference_position, sphere_tolerance)){
 
           if (spheres_throw_vec[current_course].direction=="back"){
             other_pose.pose.position.x = states.pose[robot_idx].position.x-1.0;
@@ -368,7 +371,7 @@ void khnp_comp::sphere_time_func(const ros::TimerEvent& event){
             other_pose.twist.linear.x = -(double)rand_tmp/200.0;
             other_pose.twist.linear.y = -rand_tmp2*5.0;
           }
-          other_pose.pose.position.z = states.pose[robot_idx].position.z+0.8;
+          other_pose.pose.position.z = states.pose[robot_idx].position.z+0.4;
           other_pose.twist.linear.z = 0.0;
           other_pose.model_name = spheres_names[current_course];
           other_pose.pose.orientation.x = 0.0; other_pose.pose.orientation.y = 0.0; other_pose.pose.orientation.z = 0.0; other_pose.pose.orientation.w = 1.0;
@@ -394,6 +397,18 @@ void khnp_comp::sphere_time_func(const ros::TimerEvent& event){
   }
 }
 
+void khnp_comp::move_to_current_course(){
+  robot_pose.pose.position.x = courseAB[current_map].courses[current_course].start_position.x;
+  robot_pose.pose.position.y = courseAB[current_map].courses[current_course].start_position.y;
+  robot_pose.pose.position.z = courseAB[current_map].courses[current_course].start_position.z+0.6;
+  robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
+  robot_pose.pose.orientation.z = 0.0; robot_pose.pose.orientation.w = 1.0;
+  if (courseAB[current_map].courses[current_course].heading_opposite){
+    robot_pose.pose.orientation.z = 1.0; robot_pose.pose.orientation.w = 0.0;
+  }
+  model_move_srv.request.model_state = robot_pose;
+  model_mover.call(model_move_srv);
+}
 
 void khnp_comp::move_to_next_course(){
   if (current_course+1 < courseAB[current_map].courses.size()){
@@ -416,7 +431,6 @@ void khnp_comp::move_to_next_course(){
   robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
   robot_pose.pose.orientation.z = 0.0; robot_pose.pose.orientation.w = 1.0;
   if (courseAB[current_map].courses[current_course].heading_opposite){
-    robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
     robot_pose.pose.orientation.z = 1.0; robot_pose.pose.orientation.w = 0.0;
   }
   model_move_srv.request.model_state = robot_pose;
@@ -442,7 +456,6 @@ bool khnp_comp::move_to_next_map(){
   robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
   robot_pose.pose.orientation.z = 0.0; robot_pose.pose.orientation.w = 1.0;
   if (courseAB[current_map].courses[current_course].heading_opposite){
-    robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
     robot_pose.pose.orientation.z = 1.0; robot_pose.pose.orientation.w = 0.0;
   }
   model_move_srv.request.model_state = robot_pose;
@@ -644,6 +657,7 @@ void khnp_comp::finish_result(){
       other_pose.model_name = cubes_names[i];
       other_pose.pose.position.x = cubes_poses[i].x; other_pose.pose.position.y = cubes_poses[i].y; other_pose.pose.position.z = cubes_poses[i].z;
       other_pose.pose.orientation.x = 0.0; other_pose.pose.orientation.y = 0.0; other_pose.pose.orientation.z = 0.0; other_pose.pose.orientation.w = 1.0;
+      other_pose.twist.linear.x = 0.0; other_pose.twist.linear.y = 0.0; other_pose.twist.linear.z = 0.0;
       model_move_srv.request.model_state = other_pose;
       model_mover.call(model_move_srv);
     }
@@ -651,6 +665,7 @@ void khnp_comp::finish_result(){
       other_pose.model_name = spheres_names[i];
       other_pose.pose.position.x = spheres_poses[i].x; other_pose.pose.position.y = spheres_poses[i].y; other_pose.pose.position.z = spheres_poses[i].z;
       other_pose.pose.orientation.x = 0.0; other_pose.pose.orientation.y = 0.0; other_pose.pose.orientation.z = 0.0; other_pose.pose.orientation.w = 1.0;
+      other_pose.twist.linear.x = 0.0; other_pose.twist.linear.y = 0.0; other_pose.twist.linear.z = 0.0;
       model_move_srv.request.model_state = other_pose;
       model_mover.call(model_move_srv);
       spheres_throw_vec[i].if_throw=false;
