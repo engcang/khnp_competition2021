@@ -45,5 +45,16 @@ include_directories(
   ${Qt5Widgets_INCLUDE_DIRS}
 )
 
-add_executable(${PROJECT_NAME}_node src/main.cpp)
-target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} ${OpenCV_LIBS} Qt5::Core Qt5::Widgets)
+add_executable(${PROJECT_NAME}_node_A src/mainA.cpp)
+target_link_libraries(${PROJECT_NAME}_node_A ${catkin_LIBRARIES} ${OpenCV_LIBS} Qt5::Core Qt5::Widgets)
+
+find_file(BHEADER NAMES "mainB.h" HINTS include NO_DEFAULT_PATH)
+find_file(BCOURSE NAMES "courseB.h" HINTS include NO_DEFAULT_PATH)
+find_file(BCPP NAMES "mainB.cpp" HINTS src NO_DEFAULT_PATH)
+if (BHEADER AND BCOURSE AND BCPP)
+  message(WARNING "header: " ${BHEADER} " course header: " ${BCOURSE} " cpp: " ${BCPP})
+  add_executable(${PROJECT_NAME}_node_B src/mainB.cpp)
+  target_link_libraries(${PROJECT_NAME}_node_B ${catkin_LIBRARIES} ${OpenCV_LIBS} Qt5::Core Qt5::Widgets)
+else()
+  message(WARNING "Not building B")
+endif()

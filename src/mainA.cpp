@@ -1,4 +1,4 @@
-#include "main.h"
+#include "mainA.h"
 
 
 int main(int argc, char **argv)

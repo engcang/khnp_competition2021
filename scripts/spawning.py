@@ -29,15 +29,17 @@ class mason_spawner():
         self.if_gz_on=False
 
     def gt_cb(self, msg):
-        rp = rospkg.RosPack()
-        package_path = rp.get_path("khnp_competition")
-        f = open(package_path+"/gazebo_map_for_khnp/common/third_camera/model.sdf",'r')
+        if not self.if_gz_on:
+            rp = rospkg.RosPack()
+            package_path = rp.get_path("khnp_competition")
+            f = open(package_path+"/gazebo_map_for_khnp/common/third_camera/model.sdf",'r')
 
-        self.model_name = rospy.get_param("/third_cam_name", 'third_camera')
-        self.model_xml = f.read()
-        self.initial_pose = Pose()
-        self.initial_pose.orientation.w=1.0
-        self.if_gz_on=True
+            self.model_name = rospy.get_param("/third_cam_name", 'third_camera')
+            self.model_xml = f.read()
+            self.initial_pose = Pose()
+            self.initial_pose.orientation.w=1.0
+            f.close()
+            self.if_gz_on=True
 
     def msg_cb(self, msg):
         if not self.if_cam_spawned and self.if_gz_on:
@@ -61,4 +63,3 @@ if __name__=='__main__':
             if mas.if_cam_spawned:
                 break
     sys.exit(0)
-

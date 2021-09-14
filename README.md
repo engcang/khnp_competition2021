@@ -6,7 +6,8 @@
 
 ## How to use
 + Make sure that you installed `ROS desktop full` version - refer the [wiki page](https://wiki.ros.org/ROS/Installation)
-  + It comes with `Qt5`, `Gazebo`
+  + It comes with `Qt5`, `Gazebo`, `OpenCV` version 3.2, `cv_bridge`
+  + In other words, this repo depends on `QT5`, `Gazebo`, `OpenCV`, `cv_bridge`.
 
 <br>
 

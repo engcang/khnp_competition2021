@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <launch>
+  <arg name="course" default="A"/> <!-- A: open source for participants, B: not open -->
 
 <!--  <node name="visualizer" pkg="rviz" type="rviz" args="-d $(find traj_gen)/rviz.rviz"/>-->
 
@@ -18,8 +19,15 @@
   <param name="/third_cam_name" value="third_camera"/>
   <param name="/robot_name" value="/"/>
 
-  <node name="khnp_competition_code" pkg="khnp_competition" type="khnp_competition_node" output="screen"/>
+  <group if="$(eval arg('course') == 'A')">
+    <node name="khnp_competition_code" pkg="khnp_competition" type="khnp_competition_node_A" output="screen"/>
   <!-- launch-prefix="gdb -ex run --> <!--args" -->
+  </group>
+  <group if="$(eval arg('course') == 'B')">
+    <node name="khnp_competition_code" pkg="khnp_competition" type="khnp_competition_node_B" output="screen"/>
+  <!-- launch-prefix="gdb -ex run --> <!--args" -->
+  </group>
+
   <node name="khnp_competition_spawner" pkg="khnp_competition" type="spawning.py" output="screen"/>
 
 </launch>

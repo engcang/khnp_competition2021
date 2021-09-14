@@ -53,7 +53,6 @@
 #include <cv_bridge/cv_bridge.h>
 
 #include "courseA.h"
-// #include "courseB.h"
 
 using namespace std;
 
