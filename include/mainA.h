@@ -2,6 +2,7 @@
 #define KHNP_MAIN_H
 
 ///// Qt GUI elements
+#include <QtCore>
 #include <QApplication>
 #include <QtWidgets>
 #include <QVBoxLayout>
@@ -75,7 +76,7 @@ bool within_range(T1 a, T2 b, T3 c){
 class khnp_comp: public QWidget{
   private:
     // no meaning for private, just separated QT variables
-    QTimer *mainTimer;
+    QTimer *mainTimer, *subTimer;
     QHBoxLayout *main_hbox;
     QVBoxLayout *left_vbox, *right_vbox;
     QHBoxLayout *right_hbox_btns, *right_hbox1, *right_hbox2, *right_hbox3, *right_hbox4, *right_hbox5, *right_hbox6, *right_hbox_result;
@@ -83,7 +84,7 @@ class khnp_comp: public QWidget{
     QLabel *right_text1, *right_text2, *right_text3, *right_text4, *right_text9;
     QLabel *right_text5, *right_text6, *right_text7, *right_text8, *right_text10;
     QLabel *right_creator, *right_logo, *right_result;
-    QPushButton *falldown_button, *pause_button, *reset_button, *skip_button;
+    QPushButton *falldown_button, *pause_button, *reset_button, *skip_button, *refresh_button;
 
     QPalette palette;
     QFont font;
@@ -106,6 +107,7 @@ class khnp_comp: public QWidget{
     void reset_button_callback();
     void skip_button_callback();
     void finish_result();
+    void nothing();
 
   public:
     // no meaning for public, just separate ROS and main variables
@@ -131,9 +133,10 @@ class khnp_comp: public QWidget{
     ros::Subscriber states_sub, third_cam_sub, first_cam_sub, clock_sub;
     ros::Publisher spawning_msg_pub;
     ros::ServiceClient model_mover, model_spawner, pauser, unpauser, resetter;
-    ros::Timer main_timer, sphere_timer, felldown_timer;
+    ros::Timer main_timer, qt_timer, sphere_timer, felldown_timer;
 
     void main_timer_func(const ros::TimerEvent& event);
+    void qt_timer_func(const ros::TimerEvent& event);
     void main_initialize();
     void sphere_time_func(const ros::TimerEvent& event);
     void if_felldown_time_func(const ros::TimerEvent& event);
@@ -179,10 +182,8 @@ class khnp_comp: public QWidget{
 
       spawning_msg_pub = nh.advertise<std_msgs::Empty>("/spawning_model", 2);
 
-      // mainTimer = new QTimer(this);
-      // connect( mainTimer, SIGNAL(timeout()), this, SLOT(main_timer_func()) );
-      // mainTimer->start(15); //15Hz
-      main_timer = nh.createTimer(ros::Duration(1/15.0), &khnp_comp::main_timer_func, this); // every 1/24 second.
+      main_timer = nh.createTimer(ros::Duration(1/18.0), &khnp_comp::main_timer_func, this); // every 1/15 second.
+      qt_timer = nh.createTimer(ros::Duration(1/18.0), &khnp_comp::qt_timer_func, this); // every 1/15 second.
       sphere_timer = nh.createTimer(ros::Duration(1/2.0), &khnp_comp::sphere_time_func, this); // every 1/2 second.
       felldown_timer = nh.createTimer(ros::Duration(1/3.0), &khnp_comp::if_felldown_time_func, this); // every 1/3 second.
 
@@ -192,21 +193,22 @@ class khnp_comp: public QWidget{
     ~khnp_comp(){}
 };
 
+
+
+
+
+
+
+
+
+
+
+/////////// definitions, can be separated to .cpp
 void khnp_comp::main_timer_func(const ros::TimerEvent& event){
-// void khnp_comp::main_timer_func(){
   if (initialized && qt_initialized && state_check && third_cam_check && first_cam_check){
     cam_move(states.pose[robot_idx]);
-
-    qt_img_update(left_3rd_img, third_cam_cv_img_ptr->image);
-    qt_img_update(left_1st_img, first_cam_cv_img_ptr->image);
-
     if(!if_finished){
       ros::Duration temp2 = courseAB[current_map].time_limit - (real_current_time.clock-fixed_course_time.clock);
-      right_text7->setText(QString::number(temp2.sec + temp2.nsec*1e-9,'g',7));
-
-      ros::Duration temp = real_current_time.clock-fixed_current_time.clock;
-      right_text8->setText(QString::number(temp.sec + temp.nsec*1e-9,'g',7));
-      
       if_time_over(temp2.sec + temp2.nsec*1e-9);
       if_started_course(states.pose[robot_idx]);
       if_passed_course(states.pose[robot_idx]);
@@ -217,6 +219,21 @@ void khnp_comp::main_timer_func(const ros::TimerEvent& event){
   }
   else{
     cout << initialized << qt_initialized << state_check << third_cam_check << first_cam_check << endl;
+  }
+}
+
+void khnp_comp::qt_timer_func(const ros::TimerEvent& event){
+  if (initialized && qt_initialized && state_check && third_cam_check && first_cam_check){
+    qt_img_update(left_3rd_img, third_cam_cv_img_ptr->image);
+    qt_img_update(left_1st_img, first_cam_cv_img_ptr->image);
+
+    if(!if_finished){
+      ros::Duration temp2 = courseAB[current_map].time_limit - (real_current_time.clock-fixed_course_time.clock);
+      right_text7->setText(QString::number(temp2.sec + temp2.nsec*1e-9,'g',7));
+
+      ros::Duration temp = real_current_time.clock-fixed_current_time.clock;
+      right_text8->setText(QString::number(temp.sec + temp.nsec*1e-9,'g',7));
+    }
   }
 }
 
@@ -543,13 +560,13 @@ void khnp_comp::first_cam_callback(const sensor_msgs::CompressedImage::ConstPtr&
 
 void khnp_comp::falldown_button_callback(){
   if(!if_felldown_flag){
-    qt_icon_update(falldown_button, fell_img);
     ROS_WARN("Fell down from user");
     if_felldown_flag=true;
     tmp_felldown_counter=true;
     current_score-=3;
     falldown_score-=3;
     fell_down_time=real_current_time;
+    qt_icon_update(falldown_button, fell_img);
     right_text5->setText(QString::number(current_score,'g',7));
     right_text10->setText(QString::number(falldown_score,'g',7));
   }
@@ -693,6 +710,8 @@ void khnp_comp::QT_initialize(){
   cv::cvtColor(reset_img, reset_img, CV_BGR2RGB);
   cv::cvtColor(skip_img, skip_img, CV_BGR2RGB);
 
+  mainTimer = new QTimer();
+  subTimer = new QTimer();
   left_text1 = new QLabel();
   left_text2 = new QLabel();
   left_3rd_img = new QLabel();
@@ -701,6 +720,7 @@ void khnp_comp::QT_initialize(){
   pause_button = new QPushButton();
   reset_button = new QPushButton();
   skip_button = new QPushButton();
+  refresh_button = new QPushButton();
   right_text1 = new QLabel();
   right_text2 = new QLabel();
   right_text3 = new QLabel();
@@ -748,6 +768,10 @@ void khnp_comp::QT_initialize(){
   skip_button->setIcon(skip_pixmap);
   skip_button->setIconSize(QSize(iconsize, iconsize));
 
+  refresh_button->setText("click here only when GUI freezed");
+  font = refresh_button->font();
+  font.setPointSize(10);
+  refresh_button->setFont(font);
 
   left_text1->setText(tr("3rd person view image"));
   left_text1->setAlignment(Qt::AlignCenter);
@@ -886,12 +910,12 @@ void khnp_comp::QT_initialize(){
   right_creator->setText(creator);
   right_creator->setAlignment(Qt::AlignCenter);
   right_creator->setAutoFillBackground(true);
-  right_creator->setFixedSize(QSize(360,80));
+  right_creator->setFixedSize(QSize(360,90));
   palette = right_creator->palette();
   palette.setColor(QPalette::Window, palepurple);
   right_creator->setPalette(palette);
   font = right_creator->font();
-  font.setPointSize(8);
+  font.setPointSize(9);
   right_creator->setFont(font);
   right_creator->setFrameStyle(QFrame::Panel | QFrame::Raised);
   right_creator->setLineWidth(3);
@@ -928,6 +952,7 @@ void khnp_comp::QT_initialize(){
   right_hbox_result->addWidget(right_result);
   right_hbox_result->setAlignment(Qt::AlignCenter);
 
+  right_vbox->addWidget(refresh_button);
   right_vbox->addLayout(right_hbox_btns);
   right_vbox->addLayout(right_hbox1);
   right_vbox->addLayout(right_hbox2);
@@ -951,8 +976,18 @@ void khnp_comp::QT_initialize(){
   connect(pause_button, &QPushButton::clicked, this, &khnp_comp::pause_button_callback);
   connect(reset_button, &QPushButton::clicked, this, &khnp_comp::reset_button_callback);
   connect(skip_button, &QPushButton::clicked, this, &khnp_comp::skip_button_callback);
+  connect(refresh_button, &QPushButton::clicked, this, &khnp_comp::nothing);
+
+  connect(mainTimer, SIGNAL(timeout()), this, SLOT(update()) );
+  mainTimer->start(200);
+  connect(subTimer, SIGNAL(timeout()), this, SLOT(repaint()) );
+  subTimer->start(2000);
 
   qt_initialized=true;
 }
+
+void khnp_comp::nothing(){
+}
+
 
 #endif
