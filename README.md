@@ -39,7 +39,7 @@ $ . devel/setup.bash
 
 + Run launch file
 ~~~shell
-$ roslaunch khnp_competition main.launch world_name:=$(pwd)/course_A.world
+$ roslaunch khnp_competition main.launch
 ~~~
 
 <br>
@@ -56,12 +56,7 @@ $ roslaunch khnp_competition main.launch world_name:=$(pwd)/course_A.world
 
 <!-- Do not touch below -->
   <!--  MAIN code -->
-
-  ......
-
-  <node name="khnp_competition_code" pkg="khnp_competition" type="khnp_competition_node" output="screen"/>
-
-  ......
+  ............
 
 </launch>
 ```

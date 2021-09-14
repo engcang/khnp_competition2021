@@ -2,12 +2,7 @@
 <launch>
   <arg name="course" default="A"/> <!-- A: open source for participants, B: not open -->
 
-<!--  <node name="visualizer" pkg="rviz" type="rviz" args="-d $(find traj_gen)/rviz.rviz"/>-->
-
 <!-- Edit this part with your own algorithms -->
-<!--  <param name="/cfg_file" value="$(find traj_gen)/scripts/yolov4-tiny-3l-obj.cfg"/>-->
-<!--  <node name="person_detector" pkg="traj_gen" type="ros_opencv_dnn.py" output="screen"/>-->
-
 
 
 <!-- Do not touch below -->
