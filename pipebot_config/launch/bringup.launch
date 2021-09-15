@@ -17,7 +17,7 @@
         <param name="tf_prefix" value="$(arg robot_name)"/>
         <param if="$(arg gazebo)" name="use_sim_time" value="true"/>
   
-        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="false" output="screen">
+        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="false">
             <param name="use_tf_static"     value="false"/>
             <param name="publish_frequency" value="200"/>
             <param name="ignore_timestamp" value="true"/>
@@ -25,7 +25,7 @@
         </node>
 
         <!-- ==================== CONTROLLER ==================== -->
-        <node pkg="champ_base" name="champ_controller" type="quadruped_controller_node" output="screen">
+        <node pkg="champ_base" name="champ_controller" type="quadruped_controller_node">
             <param name="gazebo"                 value="$(arg gazebo)" />
             <param name="publish_joint_states"   value="true" />
             <param name="publish_foot_contacts"  value="$(arg publish_foot_contacts)" />
@@ -34,9 +34,10 @@
         </node>
 
         <rosparam file="$(arg ros_control_file)" command="load"/>
-        <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" args="
+        <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false" args="
             joint_states_controller
             joint_group_position_controller
+            joint_finger_position_controller
             ">
         </node>
     </group>

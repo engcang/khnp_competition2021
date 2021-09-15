@@ -224,8 +224,17 @@ void khnp_comp::main_timer_func(const ros::TimerEvent& event){
 
 void khnp_comp::qt_timer_func(const ros::TimerEvent& event){
   if (initialized && qt_initialized && state_check && third_cam_check && first_cam_check){
-    qt_img_update(left_3rd_img, third_cam_cv_img_ptr->image);
-    qt_img_update(left_1st_img, first_cam_cv_img_ptr->image);
+    try{
+      cv::Mat tmp1 = third_cam_cv_img_ptr->image.clone();
+      cv::Mat tmp2 = first_cam_cv_img_ptr->image.clone();
+      if (!tmp1.empty() and !tmp2.empty()){
+        qt_img_update(left_3rd_img, tmp1);
+        qt_img_update(left_1st_img, tmp2);
+      }
+    }
+    catch(...){
+      ROS_WARN("error");
+    }
 
     if(!if_finished){
       ros::Duration temp2 = courseAB[current_map].time_limit - (real_current_time.clock-fixed_course_time.clock);
