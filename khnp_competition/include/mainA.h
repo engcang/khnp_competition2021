@@ -182,8 +182,8 @@ class khnp_comp: public QWidget{
 
       spawning_msg_pub = nh.advertise<std_msgs::Empty>("/spawning_model", 2);
 
-      main_timer = nh.createTimer(ros::Duration(1/18.0), &khnp_comp::main_timer_func, this); // every 1/15 second.
-      qt_timer = nh.createTimer(ros::Duration(1/18.0), &khnp_comp::qt_timer_func, this); // every 1/15 second.
+      main_timer = nh.createTimer(ros::Duration(1/13.0), &khnp_comp::main_timer_func, this); // every 1/15 second.
+      qt_timer = nh.createTimer(ros::Duration(1/13.0), &khnp_comp::qt_timer_func, this); // every 1/15 second.
       sphere_timer = nh.createTimer(ros::Duration(1/2.0), &khnp_comp::sphere_time_func, this); // every 1/2 second.
       felldown_timer = nh.createTimer(ros::Duration(1/3.0), &khnp_comp::if_felldown_time_func, this); // every 1/3 second.
 
