@@ -76,7 +76,7 @@ bool within_range(T1 a, T2 b, T3 c){
 class khnp_comp: public QWidget{
   private:
     // no meaning for private, just separated QT variables
-    QTimer *mainTimer, *subTimer;
+    QTimer *mainTimer; //*subTimer;
     QHBoxLayout *main_hbox;
     QVBoxLayout *left_vbox, *right_vbox;
     QHBoxLayout *right_hbox_btns, *right_hbox1, *right_hbox2, *right_hbox3, *right_hbox4, *right_hbox5, *right_hbox6, *right_hbox_result;
@@ -94,8 +94,7 @@ class khnp_comp: public QWidget{
     QColor lightred=QColor(255,77,115);
     int iconsize=100;
 
-    cv_bridge::CvImagePtr third_cam_cv_img_ptr, first_cam_cv_img_ptr;
-    cv::Mat logo_img, pause_img, paused_img, falldown_img, fell_img, reset_img, skip_img;
+    cv::Mat third_cam_cv_img, first_cam_cv_img, logo_img, pause_img, paused_img, falldown_img, fell_img, reset_img, skip_img;
     string path;
     bool paused_check=false, skip_check=false;
 
@@ -116,7 +115,6 @@ class khnp_comp: public QWidget{
     gazebo_msgs::SetModelState model_move_srv;
     std_srvs::Empty empty_srv;
     std_msgs::Empty empty_msg;
-    sensor_msgs::CompressedImage third_cam_img_msg, first_cam_img_msg;
     rosgraph_msgs::Clock real_current_time, fixed_current_time, fixed_course_time, fell_down_time;
 
     bool initialized=false, qt_initialized=false, state_check=false, clock_check=false, third_cam_check=false, first_cam_check=false;
@@ -182,8 +180,8 @@ class khnp_comp: public QWidget{
 
       spawning_msg_pub = nh.advertise<std_msgs::Empty>("/spawning_model", 2);
 
-      main_timer = nh.createTimer(ros::Duration(1/13.0), &khnp_comp::main_timer_func, this); // every 1/15 second.
-      qt_timer = nh.createTimer(ros::Duration(1/13.0), &khnp_comp::qt_timer_func, this); // every 1/15 second.
+      main_timer = nh.createTimer(ros::Duration(1/15.0), &khnp_comp::main_timer_func, this); 
+      qt_timer = nh.createTimer(ros::Duration(1/15.0), &khnp_comp::qt_timer_func, this); 
       sphere_timer = nh.createTimer(ros::Duration(1/2.0), &khnp_comp::sphere_time_func, this); // every 1/2 second.
       felldown_timer = nh.createTimer(ros::Duration(1/3.0), &khnp_comp::if_felldown_time_func, this); // every 1/3 second.
 
@@ -224,18 +222,10 @@ void khnp_comp::main_timer_func(const ros::TimerEvent& event){
 
 void khnp_comp::qt_timer_func(const ros::TimerEvent& event){
   if (initialized && qt_initialized && state_check && third_cam_check && first_cam_check){
-    try{
-      cv::Mat tmp1 = third_cam_cv_img_ptr->image.clone();
-      cv::Mat tmp2 = first_cam_cv_img_ptr->image.clone();
-      if (!tmp1.empty() and !tmp2.empty()){
-        qt_img_update(left_3rd_img, tmp1);
-        qt_img_update(left_1st_img, tmp2);
-      }
+    if (!third_cam_cv_img.empty() and !first_cam_cv_img.empty()){
+      qt_img_update(left_3rd_img, third_cam_cv_img);
+      qt_img_update(left_1st_img, first_cam_cv_img);
     }
-    catch(...){
-      ROS_WARN("error");
-    }
-
     if(!if_finished){
       ros::Duration temp2 = courseAB[current_map].time_limit - (real_current_time.clock-fixed_course_time.clock);
       right_text7->setText(QString::number(temp2.sec + temp2.nsec*1e-9,'g',7));
@@ -269,15 +259,25 @@ void khnp_comp::qt_img_update(QLabel *label, cv::Mat img){
   else{
     cv::cvtColor(img, vis_img, CV_BGR2RGB);
   }
-  QImage imgIn= QImage((uchar*) vis_img.data, vis_img.cols, vis_img.rows, vis_img.step, QImage::Format_RGB888);
-  QPixmap pixmap = QPixmap::fromImage(imgIn);
-  label->setPixmap(pixmap);
+  try{
+    QImage imgIn= QImage((uchar*) vis_img.data, vis_img.cols, vis_img.rows, vis_img.step, QImage::Format_RGB888);
+    QPixmap pixmap = QPixmap::fromImage(imgIn);
+    label->setPixmap(pixmap);
+  }
+  catch(...){
+    return;
+  }
 }
 
 void khnp_comp::qt_icon_update(QPushButton *btn, cv::Mat img){
-  QImage imgIn= QImage((uchar*) img.data, img.cols, img.rows, img.step, QImage::Format_RGB888);
-  QPixmap pixmap = QPixmap::fromImage(imgIn);
-  btn->setIcon(pixmap);
+  try{
+    QImage imgIn= QImage((uchar*) img.data, img.cols, img.rows, img.step, QImage::Format_RGB888);
+    QPixmap pixmap = QPixmap::fromImage(imgIn);
+    btn->setIcon(pixmap);
+  }
+  catch(...){
+    return;
+  }
 }
 
 bool khnp_comp::if_felldown(geometry_msgs::Pose pose){
@@ -566,16 +566,16 @@ void khnp_comp::states_callback(const gazebo_msgs::ModelStates::ConstPtr& msg){
 }
 
 void khnp_comp::third_cam_callback(const sensor_msgs::CompressedImage::ConstPtr& msg){
-  third_cam_img_msg = *msg;
-  third_cam_cv_img_ptr = cv_bridge::toCvCopy(third_cam_img_msg);
+  cv_bridge::CvImagePtr third_cam_cv_img_ptr = cv_bridge::toCvCopy(*msg);
+  third_cam_cv_img_ptr->image.copyTo(third_cam_cv_img);
   if(!third_cam_check){
     ROS_WARN("%s initialized!", third_cam_name.c_str());
     third_cam_check=true;
   }
 }
 void khnp_comp::first_cam_callback(const sensor_msgs::CompressedImage::ConstPtr& msg){
-  first_cam_img_msg = *msg;
-  first_cam_cv_img_ptr = cv_bridge::toCvCopy(first_cam_img_msg);
+  cv_bridge::CvImagePtr first_cam_cv_img_ptr = cv_bridge::toCvCopy(*msg);
+  first_cam_cv_img_ptr->image.copyTo(first_cam_cv_img);
   first_cam_check=true;
 }
 
@@ -735,7 +735,7 @@ void khnp_comp::QT_initialize(){
   cv::cvtColor(skip_img, skip_img, CV_BGR2RGB);
 
   mainTimer = new QTimer();
-  subTimer = new QTimer();
+  // subTimer = new QTimer();
   left_text1 = new QLabel();
   left_text2 = new QLabel();
   left_3rd_img = new QLabel();
@@ -1004,8 +1004,8 @@ void khnp_comp::QT_initialize(){
 
   connect(mainTimer, SIGNAL(timeout()), this, SLOT(update()) );
   mainTimer->start(200);
-  connect(subTimer, SIGNAL(timeout()), this, SLOT(repaint()) );
-  subTimer->start(2000);
+  // connect(subTimer, SIGNAL(timeout()), this, SLOT(repaint()) );
+  // subTimer->start(2000);
 
   qt_initialized=true;
 }
