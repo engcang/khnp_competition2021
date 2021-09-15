@@ -18,6 +18,12 @@
           - BR_hip_joint
           - BR_thigh_joint
           - BR_calf_joint
+          - arm_1_joint
+          - arm_2_joint
+          - arm_3_joint
+          - arm_4_joint
+          - arm_5_joint
+          - arm_6_joint
 
       gains:
         FL_hip_joint : {p: 150, d: 8, i: 3}
@@ -32,3 +38,9 @@
         BR_hip_joint : {p: 150, d: 8, i: 3}
         BR_thigh_joint : {p: 150, d: 8, i: 3}
         BR_calf_joint : {p: 150, d: 8, i: 3}
+        arm_1_joint : {p: 180, d: 0.3, i: 10}
+        arm_2_joint : {p: 180, d: 0.3, i: 10}
+        arm_3_joint : {p: 180, d: 0.3, i: 10}
+        arm_4_joint : {p: 180, d: 0.3, i: 10}
+        arm_5_joint : {p: 180, d: 0.3, i: 10}
+        arm_6_joint : {p: 180, d: 0.3, i: 10}

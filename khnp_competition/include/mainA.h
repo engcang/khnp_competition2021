@@ -414,13 +414,16 @@ void khnp_comp::sphere_time_func(const ros::TimerEvent& event){
 }
 
 void khnp_comp::move_to_current_course(){
-  robot_pose.pose.position.x = courseAB[current_map].courses[current_course].start_position.x;
-  robot_pose.pose.position.y = courseAB[current_map].courses[current_course].start_position.y;
-  robot_pose.pose.position.z = courseAB[current_map].courses[current_course].start_position.z+0.6;
+  robot_pose.pose.position.x = courseAB[current_map].courses[current_course].spawn_position.x;
+  robot_pose.pose.position.y = courseAB[current_map].courses[current_course].spawn_position.y;
+  robot_pose.pose.position.z = courseAB[current_map].courses[current_course].spawn_position.z+0.6;
   robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
   robot_pose.pose.orientation.z = 0.0; robot_pose.pose.orientation.w = 1.0;
   if (courseAB[current_map].courses[current_course].heading_opposite){
     robot_pose.pose.orientation.z = 1.0; robot_pose.pose.orientation.w = 0.0;
+  }
+  else if (courseAB[current_map].courses[current_course].heading_clock){
+    robot_pose.pose.orientation.z = 0.7071068; robot_pose.pose.orientation.w = 0.7071068;
   }
   model_move_srv.request.model_state = robot_pose;
   model_mover.call(model_move_srv);
@@ -441,13 +444,16 @@ void khnp_comp::move_to_next_course(){
     ROS_WARN("No more course to proceed!");
     return;
   }
-  robot_pose.pose.position.x = courseAB[current_map].courses[current_course].start_position.x;
-  robot_pose.pose.position.y = courseAB[current_map].courses[current_course].start_position.y;
-  robot_pose.pose.position.z = courseAB[current_map].courses[current_course].start_position.z+0.6;
+  robot_pose.pose.position.x = courseAB[current_map].courses[current_course].spawn_position.x;
+  robot_pose.pose.position.y = courseAB[current_map].courses[current_course].spawn_position.y;
+  robot_pose.pose.position.z = courseAB[current_map].courses[current_course].spawn_position.z+0.6;
   robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
   robot_pose.pose.orientation.z = 0.0; robot_pose.pose.orientation.w = 1.0;
   if (courseAB[current_map].courses[current_course].heading_opposite){
     robot_pose.pose.orientation.z = 1.0; robot_pose.pose.orientation.w = 0.0;
+  }
+  else if (courseAB[current_map].courses[current_course].heading_clock){
+    robot_pose.pose.orientation.z = 0.7071068; robot_pose.pose.orientation.w = 0.7071068;
   }
   model_move_srv.request.model_state = robot_pose;
   model_mover.call(model_move_srv);
@@ -466,13 +472,16 @@ bool khnp_comp::move_to_next_map(){
     fixed_course_time=real_current_time;
     update=false;
   }
-  robot_pose.pose.position.x = courseAB[current_map].courses[current_course].start_position.x;
-  robot_pose.pose.position.y = courseAB[current_map].courses[current_course].start_position.y;
-  robot_pose.pose.position.z = courseAB[current_map].courses[current_course].start_position.z+0.6;
+  robot_pose.pose.position.x = courseAB[current_map].courses[current_course].spawn_position.x;
+  robot_pose.pose.position.y = courseAB[current_map].courses[current_course].spawn_position.y;
+  robot_pose.pose.position.z = courseAB[current_map].courses[current_course].spawn_position.z+0.6;
   robot_pose.pose.orientation.x = 0.0; robot_pose.pose.orientation.y = 0.0; 
   robot_pose.pose.orientation.z = 0.0; robot_pose.pose.orientation.w = 1.0;
   if (courseAB[current_map].courses[current_course].heading_opposite){
     robot_pose.pose.orientation.z = 1.0; robot_pose.pose.orientation.w = 0.0;
+  }
+  else if (courseAB[current_map].courses[current_course].heading_clock){
+    robot_pose.pose.orientation.z = 0.7071068; robot_pose.pose.orientation.w = 0.7071068;
   }
   model_move_srv.request.model_state = robot_pose;
   model_mover.call(model_move_srv);
@@ -483,6 +492,9 @@ void khnp_comp::if_time_over(double time_left){
   if (time_left<=0){
     if (move_to_next_map()){
       courseAB[current_map-1].if_passed_map=false;
+      char stg_string[20];
+      sprintf(stg_string, "%s- %d", courseAB[current_map].name.c_str(), current_course+1);
+      right_text6->setText(QString::fromStdString(stg_string));
     }
     if_felldown_flag=false;
     qt_icon_update(falldown_button, falldown_img);
@@ -617,6 +629,9 @@ void khnp_comp::skip_button_callback(){
   move_to_next_course();
   if_felldown_flag=false;
   qt_icon_update(falldown_button, falldown_img);
+  char stg_string[20];
+  sprintf(stg_string, "%s- %d", courseAB[current_map].name.c_str(), current_course+1);
+  right_text6->setText(QString::fromStdString(stg_string));
 
   skip_check=true;
   ROS_WARN("skip");

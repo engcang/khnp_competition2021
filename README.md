@@ -4,6 +4,10 @@
 
 <br>
 
+#### Please note that the world file is huge, so loading gazebo make take few minutes. (200 seconds for myself with super strong computer)
+
+<br>
+
 ## How to use
 + Make sure that you installed `ROS desktop full` version - refer the [wiki page](https://wiki.ros.org/ROS/Installation)
   + It comes with `Qt5`, `Gazebo`, `OpenCV` version 3.2, `cv_bridge`

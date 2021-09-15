@@ -32,7 +32,7 @@ class mason_spawner():
         if not self.if_gz_on:
             rp = rospkg.RosPack()
             package_path = rp.get_path("khnp_competition")
-            f = open(package_path+"/gazebo_map_for_khnp/common/third_camera/model.sdf",'r')
+            f = open(package_path+"/../gazebo_map_for_khnp/common/third_camera/model.sdf",'r')
 
             self.model_name = rospy.get_param("/third_cam_name", 'third_camera')
             self.model_xml = f.read()
