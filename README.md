@@ -12,6 +12,28 @@
 + Make sure that you installed `ROS desktop full` version - refer the [wiki page](https://wiki.ros.org/ROS/Installation)
   + It comes with `Qt5`, `Gazebo`, `OpenCV` version 3.2, `cv_bridge`
   + In other words, this repo depends on `QT5`, `Gazebo`, `OpenCV`, `cv_bridge`.
++ Make sure that your `Cmake` version is more recent than 3.19
+  + Check it with `$ cmake --version`
+#### ● CMake version upgrade
+
+<details><summary>[CLICK HERE to see CMake upgrade]</summary>
+
+~~~shell
+$ wget https://github.com/Kitware/CMake/releases/download/v3.19.8/cmake-3.19.8.tar.gz
+$ tar zxf cmake-3.19.8.tar.gz && cd cmake-3.19.8
+$ ./bootstrap
+$ make
+$ sudo make install
+
+$ sudo reboot
+$ cmake --version 
+~~~
+
+---
+
+<br>
+
+</details>
 
 <br>
 
