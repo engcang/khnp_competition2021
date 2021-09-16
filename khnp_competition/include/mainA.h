@@ -76,7 +76,7 @@ bool within_range(T1 a, T2 b, T3 c){
 class khnp_comp: public QWidget{
   private:
     // no meaning for private, just separated QT variables
-    QTimer *mainTimer; //*subTimer;
+    QTimer *mainTimer;
     QHBoxLayout *main_hbox;
     QVBoxLayout *left_vbox, *right_vbox;
     QHBoxLayout *right_hbox_btns, *right_hbox1, *right_hbox2, *right_hbox3, *right_hbox4, *right_hbox5, *right_hbox6, *right_hbox_result;
@@ -108,6 +108,8 @@ class khnp_comp: public QWidget{
     void finish_result();
     void nothing();
 
+    void qt_timer_func();
+
   public:
     // no meaning for public, just separate ROS and main variables
     gazebo_msgs::ModelStates states;
@@ -134,7 +136,6 @@ class khnp_comp: public QWidget{
     ros::Timer main_timer, qt_timer, sphere_timer, felldown_timer;
 
     void main_timer_func(const ros::TimerEvent& event);
-    void qt_timer_func(const ros::TimerEvent& event);
     void main_initialize();
     void sphere_time_func(const ros::TimerEvent& event);
     void if_felldown_time_func(const ros::TimerEvent& event);
@@ -180,11 +181,13 @@ class khnp_comp: public QWidget{
 
       spawning_msg_pub = nh.advertise<std_msgs::Empty>("/spawning_model", 2);
 
-      main_timer = nh.createTimer(ros::Duration(1/15.0), &khnp_comp::main_timer_func, this); 
-      qt_timer = nh.createTimer(ros::Duration(1/15.0), &khnp_comp::qt_timer_func, this); 
+      main_timer = nh.createTimer(ros::Duration(1/12.0), &khnp_comp::main_timer_func, this); 
       sphere_timer = nh.createTimer(ros::Duration(1/2.0), &khnp_comp::sphere_time_func, this); // every 1/2 second.
       felldown_timer = nh.createTimer(ros::Duration(1/3.0), &khnp_comp::if_felldown_time_func, this); // every 1/3 second.
 
+      mainTimer = new QTimer(this);
+      connect(mainTimer, &QTimer::timeout, [=](){qt_timer_func();} );
+      mainTimer->start(80);
 
       ROS_WARN("class heritated, starting node...");
     }
@@ -220,7 +223,7 @@ void khnp_comp::main_timer_func(const ros::TimerEvent& event){
   }
 }
 
-void khnp_comp::qt_timer_func(const ros::TimerEvent& event){
+void khnp_comp::qt_timer_func(){
   if (initialized && qt_initialized && state_check && third_cam_check && first_cam_check){
     if (!third_cam_cv_img.empty() and !first_cam_cv_img.empty()){
       qt_img_update(left_3rd_img, third_cam_cv_img);
@@ -734,8 +737,6 @@ void khnp_comp::QT_initialize(){
   cv::cvtColor(reset_img, reset_img, CV_BGR2RGB);
   cv::cvtColor(skip_img, skip_img, CV_BGR2RGB);
 
-  mainTimer = new QTimer();
-  // subTimer = new QTimer();
   left_text1 = new QLabel();
   left_text2 = new QLabel();
   left_3rd_img = new QLabel();
@@ -1001,11 +1002,6 @@ void khnp_comp::QT_initialize(){
   connect(reset_button, &QPushButton::clicked, this, &khnp_comp::reset_button_callback);
   connect(skip_button, &QPushButton::clicked, this, &khnp_comp::skip_button_callback);
   connect(refresh_button, &QPushButton::clicked, this, &khnp_comp::nothing);
-
-  connect(mainTimer, SIGNAL(timeout()), this, SLOT(update()) );
-  mainTimer->start(200);
-  // connect(subTimer, SIGNAL(timeout()), this, SLOT(repaint()) );
-  // subTimer->start(2000);
 
   qt_initialized=true;
 }

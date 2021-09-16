@@ -45,11 +45,11 @@
   <param name="/robot_name" value="/"/>
 
   <group if="$(eval arg('course') == 'A')">
-    <node name="khnp_competition_code" pkg="khnp_competition" type="khnp_competition_node_A" output="screen" launch-prefix="gdb -ex run --args"/>
+    <node name="khnp_competition_code" pkg="khnp_competition" type="khnp_competition_node_A" output="screen"/>
   <!-- launch-prefix="gdb -ex run --> <!--args" -->
   </group>
   <group if="$(eval arg('course') == 'B')">
-    <node name="khnp_competition_code" pkg="khnp_competition" type="khnp_competition_node_B" output="screen" launch-prefix="gdb -ex run --args"/>
+    <node name="khnp_competition_code" pkg="khnp_competition" type="khnp_competition_node_B" output="screen"/>
   <!-- launch-prefix="gdb -ex run --> <!--args" -->
   </group>
 
