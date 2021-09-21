@@ -30,6 +30,15 @@ $ sudo make install
 $ sudo reboot
 $ cmake --version 
 ~~~
++ Make sure that your `Gazebo` version is at least `9.19.0`
+  + Updating `Gazebo` - [reference link](http://gazebosim.org/tutorials?tut=install_ubuntu&cat=install#Alternativeinstallation:step-by-step)
+~~~shell
+$ sudo sh -c 'echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -cs` main" > /etc/apt/sources.list.d/gazebo-stable.list'
+$ cat /etc/apt/sources.list.d/gazebo-stable.list
+$ wget https://packages.osrfoundation.org/gazebo.key -O - | sudo apt-key add -
+$ sudo apt-get update
+$ sudo apt-get upgrade
+~~~
 
 ---
 
