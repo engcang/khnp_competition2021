@@ -124,7 +124,7 @@ class khnp_comp: public QWidget{
     std::string robot_name, cube_name, third_cam_name, third_cam_topic, first_cam_topic;
     int robot_idx=0, cube_idx=0, img_width, img_height, current_score=0, falldown_score=0;
     position3d tolerance={0.15, 0.6, 0.5};
-    position3d sphere_tolerance={0.15, 1.0, 0.5};
+    position3d sphere_tolerance={0.15, 1000.0, 0.5};
     position3d cube_tolerance={0.25, 0.6, 1.5};
 
 
