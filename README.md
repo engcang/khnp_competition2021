@@ -4,7 +4,7 @@
 
 <br>
 
-#### Please note that the world file is huge, so loading gazebo make take few minutes. (200 seconds for myself with super strong computer)
+### Please note that the world file is huge, so loading gazebo may take few minutes. (200 seconds for myself with super strong computer)
 
 <br>
 
