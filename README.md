@@ -8,7 +8,7 @@
 
 <br>
 
-## Requirements
+## ● Requirements
 + Mainly tested on `ROS Melodic` version
 + Make sure that you installed `ROS desktop full` version - refer the [wiki page](https://wiki.ros.org/ROS/Installation)
   + It comes with `Qt5`, `Gazebo`, `OpenCV` version 3.2, `cv_bridge`
@@ -44,7 +44,7 @@ $ sudo apt-get upgrade
 
 <br>
 
-## How to use
+## ● How to use
 
 <br>
 
@@ -81,7 +81,13 @@ $ roslaunch khnp_competition main.launch
 
 <br>
 
-+ Add your autonomous navigation algorithm code and controller as follows:
+
+## ● What you can change
++ You can edit codes realted to control the robot. Currently, `champ` controller and temporal gripping controller is included in `main.launch` file.
++ In detail, you can edit any files under `pipebot_config/config` directory.
++ You can edit `hardwareInterface` of `transmission` in `pipebot.urdf` file to change the type of ROS controller.
+  + Only from line 10 to line 245 of the .urdf file.
++ Add your autonomous navigation algorithm code and controller in `main.launch`.
   + Open `main.launch` to edit
 ```xml
 <?xml version="1.0"?>
@@ -91,8 +97,7 @@ $ roslaunch khnp_competition main.launch
 
 
 
-<!-- Do not touch below -->
-  <!--  MAIN code -->
+<!-- Do not touch below!!!!!!!! -->
   ............
 
 </launch>
