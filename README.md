@@ -1,3 +1,13 @@
+# Developer's repo. Now official and updated competition repository is - [here](https://github.com/Woojin-Seol/KVRC2021)
+
+
+<br>
+<br>
+<br>
+<br>
+
+
+
 # Korea Hydro & Nuclear Power - Autonomous Robotic Challenge 2021
 + Quadruped robot with manipulator for this year
 + For gripping motion, [`robotiq_2finger_grippers`](https://github.com/Danfoa/robotiq_2finger_grippers) is used
@@ -22,7 +32,7 @@
 <br>
 <br>
 
-### Please note that the world file is huge, so loading gazebo may take few minutes. (200 seconds for myself with super strong computer)
+### Please note that the world file is huge, so loading gazebo may take few minutes.
 
 <br>
 
