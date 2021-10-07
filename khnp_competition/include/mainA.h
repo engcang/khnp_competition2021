@@ -730,7 +730,8 @@ void khnp_comp::finish_result(){
 
 
 void khnp_comp::QT_initialize(){
-  logo_img = cv::imread(path + "/resources/khnp.png");
+  logo_img = cv::imread(path + "/resources/khnp.jpg");
+  cv::resize( logo_img, logo_img, cv::Size( logo_img.cols/2, logo_img.rows/2 ), 0, 0, CV_INTER_NN );
   pause_img = cv::imread(path + "/resources/pause.png");
   paused_img = cv::imread(path + "/resources/paused.png");
   falldown_img = cv::imread(path + "/resources/falldown.png");
@@ -939,7 +940,7 @@ void khnp_comp::QT_initialize(){
   font.setPointSize(13);
   right_text10->setFont(font);
 
-  QString creator = "Maintainers (Report any bugs please)\n\nEungchang Mason Lee (email: eungchang_mason@kaist.ac.kr)\nJunho Choi (email: cjh6685kr@kaist.ac.kr)";
+  QString creator = "Maintainers (Report any bugs please)\n\nEungchang Mason Lee (email: engcang93@gmail.com)\nJunho Choi (email: cjh6685kr@gmail.com)";
   right_creator->setText(creator);
   right_creator->setAlignment(Qt::AlignCenter);
   right_creator->setAutoFillBackground(true);

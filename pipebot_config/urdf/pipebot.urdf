@@ -1264,25 +1264,29 @@
     <axis xyz="-0.0 1.0 0.0"/>
     <limit command_effort="40" current="10" effort="80" gear_velocity="10" lower="-3.0" upper="3.0" velocity="15.0" />
   </joint>
-    <joint name="FL_foot_fixed" type="fixed">
+    <joint name="FL_foot_fixed" type="revolute">
     <origin rpy="0 0 0" xyz="0.0 0.03 -0.25"/>
     <parent link="FL_calf_1"/>
     <child link="FL_foot_1"/>
+    <limit velocity="6.5" effort="1000" lower="0" upper="0" />
   </joint>
-  <joint name="FR_foot_fixed" type="fixed">
+  <joint name="FR_foot_fixed" type="revolute">
     <origin rpy="0 0 0" xyz="0.0 -0.03 -0.25"/>
     <parent link="FR_calf_2"/>
     <child link="FR_foot_1"/>
+    <limit velocity="6.5" effort="1000" lower="0" upper="0" />
   </joint>
-  <joint name="BR_foot_fixed" type="fixed">
+  <joint name="BR_foot_fixed" type="revolute">
     <origin rpy="0 0 0" xyz="0.0 -0.03 -0.25"/>
     <parent link="BR_calf_1"/>
     <child link="BR_foot_4"/>
+    <limit velocity="6.5" effort="1000" lower="0" upper="0" />
   </joint>
-  <joint name="BL_foot_fixed" type="fixed">
+  <joint name="BL_foot_fixed" type="revolute">
     <origin rpy="0 0 0" xyz="0.0 0.03 -0.25"/>
     <parent link="BL_calf_1"/>
     <child link="BL_foot_1"/>
+    <limit velocity="6.5" effort="1000" lower="0" upper="0" />
   </joint>
   <joint name="arm_1_joint" type="continuous">
     <origin rpy="0 0 0" xyz="0.1397 -0.000275 0.1915"/>
@@ -1327,10 +1331,11 @@
     <limit command_effort="40" current="10" effort="80" gear_velocity="10" lower="-3.0" upper="3.0" velocity="15.0" />
   </joint>
 
-  <joint name="arm_6_finger_joint" type="fixed">
+  <joint name="arm_6_finger_joint" type="revolute">
     <origin rpy="0 0 0" xyz="0.0 0.0 0.02"/>
     <parent link="ARM_6_1"/>
     <child link="robotiq_arg2f_base_link"/>
+    <limit velocity="6.5" effort="1000" lower="0" upper="0" />
   </joint>
   <joint name="finger_joint" type="revolute">
     <origin rpy="2.29579632679 0 0" xyz="0 -0.030601 0.054905"/>
@@ -1747,5 +1752,46 @@
     </sensor>
   </gazebo>
 
+
+  <gazebo>
+    <plugin name="front_left_foot_calf_force_torque" filename="libgazebo_ros_ft_sensor.so">
+      <updateRate>100</updateRate>
+      <topicName>/FL/ft_sensor</topicName>
+      <gaussianNoise>0.0</gaussianNoise>
+      <jointName>FL_foot_fixed</jointName>
+    </plugin>
+  </gazebo>
+  <gazebo>
+    <plugin name="front_right_foot_calf_force_torque" filename="libgazebo_ros_ft_sensor.so">
+      <updateRate>100</updateRate>
+      <topicName>/FR/ft_sensor</topicName>
+      <gaussianNoise>0.0</gaussianNoise>
+      <jointName>FR_foot_fixed</jointName>
+    </plugin>
+  </gazebo>
+  <gazebo>
+    <plugin name="back_right_foot_calf_force_torque" filename="libgazebo_ros_ft_sensor.so">
+      <updateRate>100</updateRate>
+      <topicName>/BR/ft_sensor</topicName>
+      <gaussianNoise>0.0</gaussianNoise>
+      <jointName>BR_foot_fixed</jointName>
+    </plugin>
+  </gazebo>
+  <gazebo>
+    <plugin name="back_left_foot_calf_force_torque" filename="libgazebo_ros_ft_sensor.so">
+      <updateRate>100</updateRate>
+      <topicName>/BL/ft_sensor</topicName>
+      <gaussianNoise>0.0</gaussianNoise>
+      <jointName>BL_foot_fixed</jointName>
+    </plugin>
+  </gazebo>
+  <gazebo>
+    <plugin name="arm_finger_force_torque" filename="libgazebo_ros_ft_sensor.so">
+      <updateRate>100</updateRate>
+      <topicName>/ArmFinger/ft_sensor</topicName>
+      <gaussianNoise>0.0</gaussianNoise>
+      <jointName>arm_6_finger_joint</jointName>
+    </plugin>
+  </gazebo>
 
 </robot>
