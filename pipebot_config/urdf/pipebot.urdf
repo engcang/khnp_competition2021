@@ -425,12 +425,20 @@
   </gazebo>
   <gazebo reference="left_inner_finger_pad">    
     <material>Gazebo/White</material>
-      <mu1>100.0</mu1>
-      <mu2>100.0</mu2>
-      <kp>1000000.0</kp>
-      <kd>100000.0</kd>
-      <minDepth>0.003</minDepth>
+      <mu1>1000.0</mu1>
+      <mu2>1000.0</mu2>
+      <kp>1000000000.0</kp>
+      <kd>100000000.0</kd>
+      <slip1>0</slip1>
+      <slip2>0</slip2>
+      <minDepth>0.001</minDepth>
       <maxVel>0.0</maxVel>
+      <torsional>
+        <ode>
+            <coefficient>1000</coefficient>
+            <slip>0</slip>
+        </ode>
+      </torsional>
   </gazebo>
   <gazebo reference="left_inner_knuckle">    
     <material>Gazebo/DarkGrey</material>
@@ -446,12 +454,20 @@
   </gazebo>
   <gazebo reference="right_inner_finger_pad">    
     <material>Gazebo/White</material>
-      <mu1>100.0</mu1>
-      <mu2>100.0</mu2>
-      <kp>1000000.0</kp>
-      <kd>100000.0</kd>
-      <minDepth>0.003</minDepth>
+      <mu1>1000.0</mu1>
+      <mu2>1000.0</mu2>
+      <kp>1000000000.0</kp>
+      <kd>100000000.0</kd>
+      <slip1>0</slip1>
+      <slip2>0</slip2>
+      <minDepth>0.001</minDepth>
       <maxVel>0.0</maxVel>
+      <torsional>
+        <ode>
+            <coefficient>1000</coefficient>
+            <slip>0</slip>
+        </ode>
+      </torsional>
   </gazebo>
   <gazebo reference="right_inner_knuckle">    
     <material>Gazebo/DarkGrey</material>
@@ -1264,29 +1280,25 @@
     <axis xyz="-0.0 1.0 0.0"/>
     <limit command_effort="40" current="10" effort="80" gear_velocity="10" lower="-3.0" upper="3.0" velocity="15.0" />
   </joint>
-    <joint name="FL_foot_fixed" type="revolute">
+    <joint name="FL_foot_fixed" type="fixed">
     <origin rpy="0 0 0" xyz="0.0 0.03 -0.25"/>
     <parent link="FL_calf_1"/>
     <child link="FL_foot_1"/>
-    <limit velocity="6.5" effort="1000" lower="0" upper="0" />
   </joint>
-  <joint name="FR_foot_fixed" type="revolute">
+  <joint name="FR_foot_fixed" type="fixed">
     <origin rpy="0 0 0" xyz="0.0 -0.03 -0.25"/>
     <parent link="FR_calf_2"/>
     <child link="FR_foot_1"/>
-    <limit velocity="6.5" effort="1000" lower="0" upper="0" />
   </joint>
-  <joint name="BR_foot_fixed" type="revolute">
+  <joint name="BR_foot_fixed" type="fixed">
     <origin rpy="0 0 0" xyz="0.0 -0.03 -0.25"/>
     <parent link="BR_calf_1"/>
     <child link="BR_foot_4"/>
-    <limit velocity="6.5" effort="1000" lower="0" upper="0" />
   </joint>
-  <joint name="BL_foot_fixed" type="revolute">
+  <joint name="BL_foot_fixed" type="fixed">
     <origin rpy="0 0 0" xyz="0.0 0.03 -0.25"/>
     <parent link="BL_calf_1"/>
     <child link="BL_foot_1"/>
-    <limit velocity="6.5" effort="1000" lower="0" upper="0" />
   </joint>
   <joint name="arm_1_joint" type="continuous">
     <origin rpy="0 0 0" xyz="0.1397 -0.000275 0.1915"/>
@@ -1331,11 +1343,10 @@
     <limit command_effort="40" current="10" effort="80" gear_velocity="10" lower="-3.0" upper="3.0" velocity="15.0" />
   </joint>
 
-  <joint name="arm_6_finger_joint" type="revolute">
+  <joint name="arm_6_finger_joint" type="fixed">
     <origin rpy="0 0 0" xyz="0.0 0.0 0.02"/>
     <parent link="ARM_6_1"/>
     <child link="robotiq_arg2f_base_link"/>
-    <limit velocity="6.5" effort="1000" lower="0" upper="0" />
   </joint>
   <joint name="finger_joint" type="revolute">
     <origin rpy="2.29579632679 0 0" xyz="0 -0.030601 0.054905"/>
@@ -1752,46 +1763,27 @@
     </sensor>
   </gazebo>
 
+<!--  Grasping plugin for real gripping -->
+  <gazebo>
+   <plugin name="gazebo_grasp_fix" filename="libgazebo_grasp_fix.so">
+      <arm>
+        <arm_name>KHNP_gripping_arm</arm_name>
+<!--         <palm_link> left_inner_knuckle  </palm_link>
+        <palm_link> right_inner_knuckle  </palm_link> -->
+        <palm_link> left_outer_knuckle  </palm_link>
+        <palm_link> right_outer_knuckle  </palm_link>
+        <gripper_link> left_inner_finger </gripper_link>
+        <gripper_link> right_inner_finger </gripper_link>
+      </arm>
+     <forces_angle_tolerance>90</forces_angle_tolerance>
+     <update_rate>5</update_rate>
+     <grip_count_threshold>2</grip_count_threshold>
+     <max_grip_count>5</max_grip_count>
+     <release_tolerance>0.01</release_tolerance>
+     <disable_collisions_on_attach>false</disable_collisions_on_attach>
+     <contact_topic>__default_topic__</contact_topic>
+    </plugin>
+  </gazebo>
 
-  <gazebo>
-    <plugin name="front_left_foot_calf_force_torque" filename="libgazebo_ros_ft_sensor.so">
-      <updateRate>100</updateRate>
-      <topicName>/FL/ft_sensor</topicName>
-      <gaussianNoise>0.0</gaussianNoise>
-      <jointName>FL_foot_fixed</jointName>
-    </plugin>
-  </gazebo>
-  <gazebo>
-    <plugin name="front_right_foot_calf_force_torque" filename="libgazebo_ros_ft_sensor.so">
-      <updateRate>100</updateRate>
-      <topicName>/FR/ft_sensor</topicName>
-      <gaussianNoise>0.0</gaussianNoise>
-      <jointName>FR_foot_fixed</jointName>
-    </plugin>
-  </gazebo>
-  <gazebo>
-    <plugin name="back_right_foot_calf_force_torque" filename="libgazebo_ros_ft_sensor.so">
-      <updateRate>100</updateRate>
-      <topicName>/BR/ft_sensor</topicName>
-      <gaussianNoise>0.0</gaussianNoise>
-      <jointName>BR_foot_fixed</jointName>
-    </plugin>
-  </gazebo>
-  <gazebo>
-    <plugin name="back_left_foot_calf_force_torque" filename="libgazebo_ros_ft_sensor.so">
-      <updateRate>100</updateRate>
-      <topicName>/BL/ft_sensor</topicName>
-      <gaussianNoise>0.0</gaussianNoise>
-      <jointName>BL_foot_fixed</jointName>
-    </plugin>
-  </gazebo>
-  <gazebo>
-    <plugin name="arm_finger_force_torque" filename="libgazebo_ros_ft_sensor.so">
-      <updateRate>100</updateRate>
-      <topicName>/ArmFinger/ft_sensor</topicName>
-      <gaussianNoise>0.0</gaussianNoise>
-      <jointName>arm_6_finger_joint</jointName>
-    </plugin>
-  </gazebo>
 
 </robot>
